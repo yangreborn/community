@@ -9,14 +9,14 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
     <style>
         /* 为下拉菜单添加过渡动画 */
-        .dropdown-content {
+       .dropdown-content {
             transition: all 0.3s ease;
             transform-origin: top;
             transform: scaleY(0);
             opacity: 0;
         }
 
-        .dropdown-content.active {
+       .dropdown-content.active {
             transform: scaleY(1);
             opacity: 1;
         }
@@ -29,26 +29,28 @@
         <div class="container mx-auto flex justify-between items-center">
             <a href="{% url 'post-list' %}" class="text-2xl font-bold">社区论坛</a>
             {% if user.is_authenticated %}
-                <span>   <a href="{% url 'post-create' %}" class="bg-white text-blue-600 py-2 px-4 rounded hover:bg-gray-200">发布新帖子</a></span>
-               <div class="relative">
-            <!-- 下拉菜单触发按钮 -->
-            <button id="dropdownButton" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                 欢迎, {{ user.username }}! <i class="fa-solid fa-caret-down"></i>
-            </button>
-            <!-- 下拉菜单内容 -->
-            <div id="dropdownContent" class="dropdown-content absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg overflow-hidden">
-                <a href="/community/logout/" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">登出</a>
-            </div>
-            </div>
-                {% else %}
-                <span ><a href="/community/login/">登录</a></span>
+                <div class="flex items-center">
+                    <a href="{% url 'post-create' %}" class="bg-white text-blue-600 py-2 px-4 rounded hover:bg-gray-200 ml-auto">发布新帖子</a>
+                    <div class="relative ml-4">
+                        <!-- 下拉菜单触发按钮 -->
+                        <button id="dropdownButton" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            欢迎, {{ user.username }}! <i class="fa-solid fa-caret-down"></i>
+                        </button>
+                        <!-- 下拉菜单内容 -->
+                        <div id="dropdownContent" class="dropdown-content absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg overflow-hidden">
+                            <a href="/community/logout/" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">登出</a>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <span><a href="/community/login/">登录</a></span>
                 <!-- 下拉菜单内容 -->
             {% endif %}
         </div>
     </nav>
-        {% block content %}
-        {% endblock %}
-<script>
+    {% block content %}
+    {% endblock %}
+    <script>
         const dropdownButton = document.getElementById('dropdownButton');
         const dropdownContent = document.getElementById('dropdownContent');
 
@@ -58,7 +60,7 @@
 
         // 点击页面其他地方关闭下拉菜单
         document.addEventListener('click', function (event) {
-            if (!dropdownButton.contains(event.target) && !dropdownContent.contains(event.target)) {
+            if (!dropdownButton.contains(event.target) &&!dropdownContent.contains(event.target)) {
                 dropdownContent.classList.remove('active');
             }
         });

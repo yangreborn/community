@@ -9,6 +9,6 @@ urlpatterns = [
     path('post/new/', views.post_create, name='post-create'),
     path('<int:post_id>/add_comment/', views.add_comment, name='add-comment'),
     path('register/', views.register, name='register'),
-    path('login/', LoginView.as_view(template_name='login.html'), name='login'),
-    path('logout/', LogoutView.as_view(), name='logout'),
+    path('login/', views.custom_login, name='login'),
+    path('logout/', views.custom_logout, name='logout'),
 ]
