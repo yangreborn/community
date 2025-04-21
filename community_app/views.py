@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Post
-from .forms import PostForm, CommentForm
+from .forms import PostForm, CommentForm, CustomUserCreationForm
 
 def post_list(request):
     posts = Post.objects.all().order_by('-created_at')
@@ -58,6 +58,19 @@ def add_comment(request, post_id):
             comment.author = request.user
             comment.save()
             return redirect('post-detail', pk=post.id)
+
+def register(request):
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('login')
     else:
-        form = CommentForm()
-    return render(request, 'community/add_comment.html', {'form': form, 'post': post})
+        form = CustomUserCreationForm()
+    return render(request, 'register.html', {'form': form})
+
+def login(request):
+    pass
+
+def logout(request):
+    pass

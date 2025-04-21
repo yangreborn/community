@@ -1,6 +1,7 @@
 # community/forms.py
 from django import forms
-from .models import Post, Comment
+from .models import Post, Comment, User
+from django.contrib.auth.forms import UserCreationForm
 
 class PostForm(forms.ModelForm):
     class Meta:
@@ -24,3 +25,10 @@ class CommentForm(forms.ModelForm):
                 'class': 'border border-gray-300 rounded-md p-2 w-full focus:ring-blue-500 focus:border-blue-500'
             }),
         }
+
+class CustomUserCreationForm(UserCreationForm):
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password1', 'password2')

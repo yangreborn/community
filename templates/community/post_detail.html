@@ -1,52 +1,6 @@
-{#{% extends 'base.html' %}#}
-{##}
-{#{% block content %}#}
-{#<h1>{{ post.title }}</h1>#}
-{#<p>作者: {{ post.author.username }} | 发布时间: {{ post.created_at }}</p>#}
-{#<p>浏览: {{ post.views }}</p>#}
-{#<hr>#}
-{#<div>{{ post.content|linebreaks }}</div>#}
-{##}
-{#<h2>回复</h2>#}
-{#{% for comment in post.comments.all %}#}
-{#    <div>#}
-{#        <p>{{ comment.content }}</p>#}
-{#        <p>评论者: {{ comment.author }} - {{ comment.created_at }}</p>#}
-{#    </div>#}
-{#{% empty %}#}
-{#    <p>暂无回复。</p>#}
-{#{% endfor %}#}
-{#<form method="post">#}
-{#    {% csrf_token %}#}
-{#    {{ comment_form.as_p }}#}
-{#    <div class="button-container">#}
-{#        <button type="submit" class="float:right">提交</button>#}
-{#    </div>#}
-{#</form>#}
-{#<a href="{% url 'post_list' %}" class="btn btn-secondary">返回列表</a>#}
-{#{% endblock %}#}
-<!DOCTYPE html>
-<html lang="en">
+{% extends 'base.html' %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ post.title }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
-</head>
-
-<body class="bg-gray-100 font-sans">
-    <!-- 导航栏 -->
-    <nav class="bg-blue-600 p-4 text-white">
-        <div class="container mx-auto flex justify-between items-center">
-            <a href="{% url 'post-list' %}" class="text-2xl font-bold">社区论坛</a>
-            {% if user.is_authenticated %}
-            <span>欢迎, {{ user.username }}!</span>
-            {% endif %}
-        </div>
-    </nav>
-
+{% block content %}
     <!-- 帖子详情 -->
     <div class="container mx-auto py-8 px-4">
         <div class="bg-white shadow-md rounded-lg p-6">
@@ -91,6 +45,4 @@
             </div>
         </div>
     </div>
-</body>
-
-</html>
+{% endblock %}
