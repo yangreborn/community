@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发布新帖子</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <!-- 导航栏 -->
+    <nav class="bg-blue-600 p-4 text-white shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="{% url 'post-list' %}" class="text-2xl font-bold">社区论坛</a>
+            {% if user.is_authenticated %}
+            <span>欢迎, {{ user.username }}!</span>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- 新建帖子表单 -->
+    <div class="container mx-auto py-8 px-4">
+        <div class="bg-white shadow-lg rounded-lg p-8">
+            <h1 class="text-3xl font-bold mb-6 text-blue-600">发布新帖子</h1>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-6">
+                    <label for="{{ form.title.id_for_label }}" class="block text-gray-700 font-bold mb-2">标题</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ form.title.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="mb-6">
+                    <label for="{{ form.content.id_for_label }}" class="block text-gray-700 font-bold mb-2">内容</label>
+                    {{ form.content }}
+                    {% if form.content.errors %}
+                    <p class="text-red-500 text-sm mt-1">{{ form.content.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">发布</button>
+                <a href="{% url 'post-list' %}" class="ml-4 text-blue-600 hover:underline">返回帖子列表</a>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

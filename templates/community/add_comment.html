@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>添加评论</title>
+</head>
+<body>
+    <h1>为帖子 "{{ post.title }}" 添加评论</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">提交评论</button>
+    </form>
+    <a href="{% url 'post-list' %}">返回帖子列表</a>
+</body>
+</html>

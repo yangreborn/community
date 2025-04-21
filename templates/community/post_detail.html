@@ -1,0 +1,96 @@
+{#{% extends 'base.html' %}#}
+{##}
+{#{% block content %}#}
+{#<h1>{{ post.title }}</h1>#}
+{#<p>作者: {{ post.author.username }} | 发布时间: {{ post.created_at }}</p>#}
+{#<p>浏览: {{ post.views }}</p>#}
+{#<hr>#}
+{#<div>{{ post.content|linebreaks }}</div>#}
+{##}
+{#<h2>回复</h2>#}
+{#{% for comment in post.comments.all %}#}
+{#    <div>#}
+{#        <p>{{ comment.content }}</p>#}
+{#        <p>评论者: {{ comment.author }} - {{ comment.created_at }}</p>#}
+{#    </div>#}
+{#{% empty %}#}
+{#    <p>暂无回复。</p>#}
+{#{% endfor %}#}
+{#<form method="post">#}
+{#    {% csrf_token %}#}
+{#    {{ comment_form.as_p }}#}
+{#    <div class="button-container">#}
+{#        <button type="submit" class="float:right">提交</button>#}
+{#    </div>#}
+{#</form>#}
+{#<a href="{% url 'post_list' %}" class="btn btn-secondary">返回列表</a>#}
+{#{% endblock %}#}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ post.title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <!-- 导航栏 -->
+    <nav class="bg-blue-600 p-4 text-white">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="{% url 'post-list' %}" class="text-2xl font-bold">社区论坛</a>
+            {% if user.is_authenticated %}
+            <span>欢迎, {{ user.username }}!</span>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- 帖子详情 -->
+    <div class="container mx-auto py-8 px-4">
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h1 class="text-3xl font-bold mb-2">{{ post.title }}</h1>
+            <div class="flex items-center text-gray-600 mb-4">
+                <span class="mr-2"><i class="fa-solid fa-user"></i> 作者: {{ post.author }}</span>
+                <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.created_at }}</span>
+            </div>
+            <p class="text-lg leading-relaxed">{{ post.content }}</p>
+        </div>
+
+        <!-- 评论部分 -->
+        <div class="mt-8">
+            <h2 class="text-2xl font-bold mb-4">评论</h2>
+            {% if comments %}
+            <div class="space-y-4">
+                {% for comment in comments %}
+                <div class="bg-white shadow-md rounded-lg p-6">
+                    <p class="text-lg leading-relaxed">{{ comment.content }}</p>
+                    <div class="flex items-center text-gray-600 mt-2">
+                        <span class="mr-2"><i class="fa-solid fa-user"></i> 评论者: {{ comment.author }}</span>
+                        <span><i class="fa-solid fa-calendar"></i> {{ comment.created_at }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-600">暂无评论。</p>
+            {% endif %}
+
+            <!-- 添加评论表单 -->
+            <div class="mt-8">
+                <h2 class="text-2xl font-bold mb-4">添加评论</h2>
+                <form method="post" class="bg-white shadow-md rounded-lg p-6">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="{{ comment_form.content.id_for_label }}" class="block text-gray-700 font-bold mb-2">评论内容</label>
+                        {{ comment_form.content }}
+                    </div>
+                    <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">提交评论</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
