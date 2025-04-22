@@ -29,8 +29,9 @@ class Post(models.Model):
 class Comment(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='comments')
     author = models.ForeignKey(User, on_delete=models.CASCADE)
-    content = models.TextField(verbose_name="输入回复内容")
+    content = models.TextField(verbose_name="")
     created_at = models.DateTimeField(auto_now_add=True)
+    parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
 
     def __str__(self):
-        return f"{self.author}在{self.post}的评论"
+        return f"{self.author}在'{self.post}'的评论"

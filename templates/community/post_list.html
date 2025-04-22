@@ -4,18 +4,19 @@
 
     <!-- 帖子列表 -->
     <div class="container mx-auto py-8 px-4">
-        <h1 class="text-3xl font-bold mb-6 text-blue-600">社区帖子列表</h1>
+        <h1 class="text-3xl font-bold mb-6 ">社区帖子列表</h1>
         {% if posts %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid">
             {% for post in posts %}
             <a href="{% url 'post-detail' pk=post.pk %}" class="bg-white shadow-lg rounded-lg p-6 transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-xl">
-                <h2 class="text-2xl font-bold mb-2 text-blue-600">{{ post.title }}</h2>
+                <h2 class="text-2xl font-bold mb-2 ">{{ post.title }}</h2>
                 <div class="flex items-center text-gray-600 mb-4">
                     <span class="mr-2"><i class="fa-solid fa-user"></i> 作者: {{ post.author }}</span>
-                    <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.created_at }}</span>
+                    <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.display_time }}</span>
                 </div>
                 <p class="text-lg leading-relaxed text-gray-800">{{ post.content|truncatewords:20 }}</p>
             </a>
+                <br/>
             {% endfor %}
         </div>
         {% else %}

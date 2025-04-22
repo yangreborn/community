@@ -7,43 +7,91 @@
             <h1 class="text-3xl font-bold mb-2">{{ post.title }}</h1>
             <div class="flex items-center text-gray-600 mb-4">
                 <span class="mr-2"><i class="fa-solid fa-user"></i> 作者: {{ post.author }}</span>
-                <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.created_at }}</span>
+                <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.display_time }}</span>
                 <span><i class="fa fa-user"></i> 浏览量: {{ post.views }}</span>
             </div>
             <p class="text-lg leading-relaxed">{{ post.content }}</p>
+            <div class="relative">
+            <button id="write-reply-btn" class="absolute bottom-0 right-0 bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">写回复</button>
+            </div>
         </div>
-
         <!-- 评论部分 -->
         <div class="mt-8">
-            <h2 class="text-2xl font-bold mb-4">评论</h2>
-            {% if comments %}
+            <h2 class="text-2xl font-bold mb-4">{{ comment_count }}条回复</h2>
+            {% if top_level_comments %}
             <div class="space-y-4">
-                {% for comment in comments %}
-                <div class="bg-white shadow-md rounded-lg p-6">
-                    <p class="text-lg leading-relaxed">{{ comment.content }}</p>
-                    <div class="flex items-center text-gray-600 mt-2">
-                        <span class="mr-2"><i class="fa-solid fa-user"></i> 评论者: {{ comment.author }}</span>
-                        <span><i class="fa-solid fa-calendar"></i> {{ comment.created_at }}</span>
+                {% for comment in top_level_comments %}
+                    <div class="bg-white shadow-md rounded-lg p-6">
+                        <div class="flex items-center text-gray-600 mt-2">
+                            <span class="mr-2"><i class="fa-solid fa-user"></i> {{ comment.author }}</span>
+                            <span><i class="fa-solid fa-calendar"></i> {{ comment.display_time }}</span>
+
+                            <button class="ml-auto bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ comment.id }}')">回复</button>
+                        </div>
+                        <p class="text-lg leading-relaxed">{{ comment.content }}</p>
+                        <form class="reply-form mt-4" action="#" method="post"  id="reply-form-{{ comment.id }}" style="display: none">
+                            {% csrf_token %}
+                            <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+                             {{ form_textinput.as_p }}
+                            <button type="submit" class="bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 mt-2">发布</button>
+                        </form>
+                        <!-- 显示回复 -->
+                        {% for reply in comment.replies_ %}
+                        <div class="bg-gray-100 shadow-md rounded-lg p-4 my-2 ml-8">
+                            <div class="flex items-center text-gray-600 mt-2">
+                                <span class="mr-2"><i class="fa-solid fa-user"></i> {{ reply.author }}</span>
+                                <span><i class="fa-solid fa-calendar"></i> {{ reply.display_time }}</span>
+                                <button class="ml-auto bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ reply.id }}')">回复</button>
+                            </div>
+                            <p class="text-lg leading-relaxed">{{ reply.content }}</p>
+                            <form class="reply-form mt-4" action="#" method="post"  id="reply-form-{{ reply.id }}" style="display: none">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+                                     {{ form_textinput.as_p }}
+                                    <button type="submit" class="bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 mt-2">发布</button>
+                                    </form>
+                            </div>
+                        {% endfor %}
+
                     </div>
-                </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-gray-600">暂无评论。</p>
+            <p class="text-gray-600">暂无回复</p>
             {% endif %}
 
             <!-- 添加评论表单 -->
-            <div class="mt-8">
-                <h2 class="text-2xl font-bold mb-4">添加评论</h2>
-                <form method="post" class="bg-white shadow-md rounded-lg p-6">
-                    {% csrf_token %}
-                    <div class="mb-4">
-                        <label for="{{ comment_form.content.id_for_label }}" class="block text-gray-700 font-bold mb-2">评论内容</label>
-                        {{ comment_form.content }}
-                    </div>
-                    <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">提交评论</button>
-                </form>
+            <div class="mt-8" id="add-comment-heading">
+               <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-6">
+                    {{ form_textarea.content }}
+                </div>
+                <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">发布</button>
+             </form>
             </div>
         </div>
     </div>
+    <script>
+            window.onload = function () {
+                    function toggleReplyForm(button, commentId) {
+                        const replyForm = document.getElementById(`reply-form-${commentId}`);
+                        if (replyForm.style.display === 'none') {
+                            button.innerHTML = '取消回复';
+                            replyForm.style.display = 'block';
+                        } else {
+                            button.innerHTML = '回复';
+                            replyForm.style.display = 'none';
+                        }
+                    }
+                    window.toggleReplyForm = toggleReplyForm;
+
+                    const writeReplyBtn = document.getElementById('write-reply-btn');
+                    const addCommentHeading = document.getElementById('add-comment-heading');
+
+                    writeReplyBtn.addEventListener('click', function () {
+                        addCommentHeading.scrollIntoView({ behavior: 'smooth' });
+                    });
+                };
+    </script>
 {% endblock %}
