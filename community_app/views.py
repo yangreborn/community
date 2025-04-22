@@ -5,10 +5,7 @@ from django.shortcuts import render
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Post
-from .forms import PostForm, CommentForm, CustomUserCreationForm
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib.auth import authenticate, login, logout
-from django.views.decorators.csrf import csrf_protect
+from .forms import PostForm, CommentForm
 
 def post_list(request):
     posts = Post.objects.all().order_by('-created_at')
@@ -62,28 +59,3 @@ def add_comment(request, post_id):
             comment.save()
             return redirect('post-detail', pk=post.id)
 
-def register(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('login')
-    else:
-        form = CustomUserCreationForm()
-    return render(request, 'register.html', {'form': form})
-
-def custom_login(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            return redirect('/community/')  # 登录成功后重定向到主页，你可以替换为实际的 URL 名称
-    else:
-        form = AuthenticationForm()
-    return render(request, 'login.html', {'form': form})
-
-@csrf_protect
-def custom_logout(request):
-    logout(request)
-    return redirect('/community/')  # 登出后重定向到你想要的页面，这里假设是名为 'home' 的 URL 名称

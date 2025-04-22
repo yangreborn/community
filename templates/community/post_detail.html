@@ -8,6 +8,7 @@
             <div class="flex items-center text-gray-600 mb-4">
                 <span class="mr-2"><i class="fa-solid fa-user"></i> 作者: {{ post.author }}</span>
                 <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.created_at }}</span>
+                <span><i class="fa fa-user"></i> 浏览量: {{ post.views }}</span>
             </div>
             <p class="text-lg leading-relaxed">{{ post.content }}</p>
         </div>
