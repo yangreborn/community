@@ -1,9 +1,9 @@
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_protect
 from .forms import CustomUserCreationForm
-
 # Create your views here.
 def register(request):
     if request.method == 'POST':
@@ -30,3 +30,14 @@ def custom_login(request):
 def custom_logout(request):
     logout(request)
     return redirect('/community/')  # 登出后重定向到你想要的页面，这里假设是名为 'home' 的 URL 名称
+
+def check_login(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': '未登录'}, status=401)
+    return JsonResponse({'status': 'success'})
+
+
+
+
+
+

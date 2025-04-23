@@ -8,7 +8,7 @@
             <div class="flex items-center text-gray-600 mb-4">
                 <span class="mr-2"><i class="fa-solid fa-user"></i> 作者: {{ post.author }}</span>
                 <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.display_time }}</span>
-                <span><i class="fa fa-user"></i> 浏览量: {{ post.views }}</span>
+                <span><i class="fa-solid fa-user"></i> 浏览量: {{ post.views }}</span>
             </div>
             <p class="text-lg leading-relaxed">{{ post.content }}</p>
             <div class="relative">
@@ -62,7 +62,7 @@
 
             <!-- 添加评论表单 -->
             <div class="mt-8" id="add-comment-heading">
-               <form method="post" enctype="multipart/form-data">
+               <form method="post" enctype="multipart/form-data" class="reply-form">
                 {% csrf_token %}
                 <div class="mb-6">
                     {{ form_textarea.content }}
@@ -93,5 +93,29 @@
                         addCommentHeading.scrollIntoView({ behavior: 'smooth' });
                     });
                 };
+            document.addEventListener('DOMContentLoaded', function() {
+                // 在列表页添加按钮
+                const objectTools = document.querySelectorAll('.reply-form');
+                objectTools.forEach(function (form){
+                    form.addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        const xhr = new XMLHttpRequest();
+                        const url = "{% url 'check-login' %}";
+                        xhr.open('GET', url, true);
+                        xhr.onreadystatechange = function () {
+                            if (xhr.readyState === 4) {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.status === 'success') {
+                                    form.removeEventListener('submit', arguments.callee);
+                                    form.submit();
+                                } else {
+                                    alert(response.message);
+                                }
+                            }
+                        };
+                        xhr.send();
+                    });
+                })
+            });
     </script>
 {% endblock %}

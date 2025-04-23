@@ -1,0 +1,13 @@
+.dropdown-content {
+    transition: all 0.3s ease;
+    transform-origin: top;
+    transform: scaleY(0);
+    opacity: 0;
+}
+.dropdown-content .active {
+    transform: scaleY(1);
+    opacity: 1;
+}
+.reply-form {
+    display: none;
+}
