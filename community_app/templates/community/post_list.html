@@ -5,6 +5,13 @@
     <!-- 帖子列表 -->
     <div class="container mx-auto py-6 px-4">
         <h1 class="text-3xl font-bold mb-6 ">社区帖子列表</h1>
+        <div class="categories">
+        <ul>
+            {% for category in categories %}
+            <li><a href="{% url 'category_posts' category.slug %}">{{ category.name }}</a></li>
+            {% endfor %}
+        </ul>
+        </div>
         {% if posts %}
         <div class="grid">
             {% for post in posts %}

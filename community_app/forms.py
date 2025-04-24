@@ -1,12 +1,24 @@
 # community/forms.py
+import os
 from django import forms
+from django.core.exceptions import  ValidationError
+from django.conf import settings
 from .models import Post, Comment
+
+def validate_file_extension(value):
+    ext = os.path.splitext(value.name)[1][1:].lower()
+    if ext not in settings.ALLOWED_FILE_EXTENSIONS:
+        raise ValidationError(f'不支持的文件类型。允许的类型: {", ".join(settings.ALLOWED_FILE_EXTENSIONS)}')
+
+def validate_file_size(value):
+    if value.size > settings.MAX_UPLOAD_SIZE:
+        raise ValidationError(f'文件太大。最大允许大小: {settings.MAX_UPLOAD_SIZE/1024/1024}MB')
 
 
 class PostForm(forms.ModelForm):
     class Meta:
         model = Post
-        fields = ['title', 'content']
+        fields = ['title', 'content', 'category', 'attachments']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'border border-gray-300 rounded-md p-2 w-full focus:ring-blue-500 focus:border-blue-500'
@@ -19,7 +31,7 @@ class PostForm(forms.ModelForm):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ['content']
+        fields = ['content', 'attachments']
         widgets = {
             'content': forms.TextInput(attrs={
                 'class': 'border border-gray-300 rounded-md p-2 w-full focus:ring-blue-500 focus:border-blue-500'

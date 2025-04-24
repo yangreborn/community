@@ -37,7 +37,3 @@ def check_login(request):
     return JsonResponse({'status': 'success'})
 
 
-
-
-
-

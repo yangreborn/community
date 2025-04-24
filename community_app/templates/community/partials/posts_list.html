@@ -1,0 +1,15 @@
+<div class="container mx-auto py-6 px-4">
+    <div class="grid">
+        {% for post in posts %}
+        <a href="{% url 'post-detail' pk=post.id %}" class="bg-white shadow-lg rounded-lg p-6 transition-transform duration-300 ease-in-out hover:scale-105 hover:shadow-xl">
+            <h2 class="text-2xl font-bold mb-2 ">{{ post.title }}</h2>
+            <div class="flex items-center text-gray-600 mb-4">
+                <span class="mr-2"><i class="fa-solid fa-user"></i> {{ post.author }}</span>
+                <span><i class="fa-solid fa-calendar"></i> {{ post.display_time }}</span>
+            </div>
+            <p class="text-lg leading-relaxed text-gray-800">{{ post.content|truncatewords:20 }}</p>
+        </a>
+            <br/>
+        {% endfor %}
+    </div>
+</div>

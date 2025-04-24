@@ -4,10 +4,10 @@
     transform: scaleY(0);
     opacity: 0;
 }
-.dropdown-content .active {
+.dropdown-content.active {
     transform: scaleY(1);
     opacity: 1;
 }
-.reply-form {
-    display: none;
-}
+/*.reply-form {*/
+/*    display: none;*/
+/*}*/

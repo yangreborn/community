@@ -1,0 +1,45 @@
+<!-- attachment_item.html -->
+<div class="attachment border rounded-lg p-3 hover:bg-gray-50 transition-colors">
+    <a href="{{ attachment.file.url }}" target="_blank" download class="flex items-start">
+        <!-- 文件类型图标 -->
+        <div class="file-icon mr-3">
+            {% if attachment.filetype in 'jpg,jpeg,png,gif,webp' %}
+            <img src="{{ attachment.file.url }}"
+                 class="h-12 w-12 object-cover rounded border"
+                 alt="预览"
+                 onerror="this.style.display='none'">
+            {% else %}
+            <div class="h-12 w-12 flex items-center justify-center
+                        bg-gray-100 rounded border text-gray-500">
+                {% if attachment.filetype == 'pdf' %}📄
+                {% elif attachment.filetype in 'doc,docx' %}📝
+                {% elif attachment.filetype in 'xls,xlsx' %}📊
+                {% elif attachment.filetype in 'ppt,pptx' %}📑
+                {% else %}📁{% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 文件信息 -->
+        <div class="file-info flex-1 min-w-0">
+            <div class="filename font-medium text-gray-900 truncate">
+                {{ attachment.filename }}
+            </div>
+            <div class="file-meta text-xs text-gray-500 mt-1">
+                <span>{{ attachment.filetype|upper }}</span>
+                <span class="mx-1">•</span>
+                <span>{{ attachment.file.size|filesizeformat }}</span>
+            </div>
+        </div>
+    </a>
+
+    <!-- 删除按钮（仅作者或管理员可见） -->
+    {% if user == attachment.uploader or user.is_staff %}
+    <form method="post" action="{% url 'delete_attachment' attachment.id %}" class="mt-2">
+        {% csrf_token %}
+        <button type="submit" class="text-red-500 text-xs hover:text-red-700">
+            🗑️ 删除
+        </button>
+    </form>
+    {% endif %}
+</div>

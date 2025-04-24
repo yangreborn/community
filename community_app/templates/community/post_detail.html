@@ -6,15 +6,19 @@
         <div class="bg-white shadow-md rounded-lg p-6">
             <h1 class="text-3xl font-bold mb-2">{{ post.title }}</h1>
             <div class="flex items-center text-gray-600 mb-4">
-                <span class="mr-2"><i class="fa-solid fa-user"></i> 作者: {{ post.author }}</span>
-                <span><i class="fa-solid fa-calendar"></i> 发布时间: {{ post.display_time }}</span>
-                <span><i class="fa-solid fa-user"></i> 浏览量: {{ post.views }}</span>
+                <span class="mr-2"><i class="fa-solid fa-user"></i>  {{ post.author }}</span>
+                <span class="mr-2"><i class="fa-solid fa-calendar"></i>  {{ post.display_time }}</span>
+                <span><i class="fa-solid fa-eye"></i> {{ post.views }}</span>
             </div>
             <p class="text-lg leading-relaxed">{{ post.content }}</p>
-            <div class="relative">
+            {% if post.attachment %}
+            <a href="{{ post.attachment.url }}">Download Attachment</a>
+            {% endif %}
+             <div class="relative h-10">
             <button id="write-reply-btn" class="absolute bottom-0 right-0 bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">写回复</button>
             </div>
         </div>
+
         <!-- 评论部分 -->
         <div class="mt-8">
             <h2 class="text-2xl font-bold mb-4">{{ comment_count }}条回复</h2>
@@ -25,10 +29,23 @@
                         <div class="flex items-center text-gray-600 mt-2">
                             <span class="mr-2"><i class="fa-solid fa-user"></i> {{ comment.author }}</span>
                             <span><i class="fa-solid fa-calendar"></i> {{ comment.display_time }}</span>
-
-                            <button class="ml-auto bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ comment.id }}')">回复</button>
+                             {% if request.user.is_admin %}
+                                <!-- 新的 flex 容器用于包裹删除和回复按钮 -->
+                                <div class="flex ml-auto space-x-2">
+                                    <button class="bg-red-600 text-white py-1 px-2 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50">
+                                        <a href="{% url 'delete-comment' comment_id=comment.id %}">删除</a>
+                                    </button>
+                                    <button class="bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ comment.id }}')">回复</button>
+                                </div>
+                            {% else %}
+                                <button class="ml-auto bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ comment.id }}')">回复</button>
+                            {% endif %}
                         </div>
+                        <br/>
                         <p class="text-lg leading-relaxed">{{ comment.content }}</p>
+                        {% if comment.attachment %}
+                         <a href="{{ comment.attachment.url }}">Download Attachment</a>
+                        {% endif %}
                         <form class="reply-form mt-4" action="#" method="post"  id="reply-form-{{ comment.id }}" style="display: none">
                             {% csrf_token %}
                             <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
@@ -41,8 +58,9 @@
                             <div class="flex items-center text-gray-600 mt-2">
                                 <span class="mr-2"><i class="fa-solid fa-user"></i> {{ reply.author }}</span>
                                 <span><i class="fa-solid fa-calendar"></i> {{ reply.display_time }}</span>
-                                <button class="ml-auto bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ reply.id }}')">回复</button>
+{#                                <button class="ml-auto bg-blue-600 text-white py-1 px-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="toggleReplyForm(this, '{{ reply.id }}')">回复</button>#}
                             </div>
+                            <br/>
                             <p class="text-lg leading-relaxed">{{ reply.content }}</p>
                             <form class="reply-form mt-4" action="#" method="post"  id="reply-form-{{ reply.id }}" style="display: none">
                                     {% csrf_token %}
@@ -67,6 +85,9 @@
                 <div class="mb-6">
                     {{ form_textarea.content }}
                 </div>
+{#                   <div id="posts-container">#}
+{#                 {% include 'community/partials/attachment_item.html' %}#}
+{#                    </div>#}
                 <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">发布</button>
              </form>
             </div>

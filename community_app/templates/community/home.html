@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{#    {% if user.is_authenticated %}#}
+{#        <a href="{% url 'post-create' %}" class="bg-white text-blue-600 py-2 px-4 rounded hover:bg-gray-200 ml-auto">发布新帖子</a>#}
+{#    {% endif %}#}
+    
+   <div class="categories bg-gray-100 py-4">
+    <!-- 使用 container 和 px-6 控制左右间距 -->
+    <div class="container mx-auto px-6">
+        <div class="flex justify-between items-center">
+            <!-- 左侧分类链接 -->
+            <div class="flex space-x-2 overflow-x-auto py-2">
+                <span>
+                    <a href="{% url 'post-create' %}"
+                       class="category-link bg-white text-blue-600 py-2 px-4 rounded-lg hover:bg-gray-200 shadow-sm whitespace-nowrap"
+                       data-slug="all">
+                       全部
+                    </a>
+                </span>
+                {% for category in categories %}
+                <span>
+                    <a href="#"
+                       class="category-link bg-white text-blue-600 py-2 px-4 rounded-lg hover:bg-gray-200 shadow-sm whitespace-nowrap"
+                       data-slug="{{ category.slug }}">
+                       {{ category.name }}({{ category.num_posts }})
+                    </a>
+                </span>
+                {% endfor %}
+            </div>
+
+            <!-- 右侧发布按钮 -->
+            {% if user.is_authenticated %}
+            <div class="ml-4">
+                <a href="{% url 'post-create' %}"
+                   class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg shadow-md transition duration-200 whitespace-nowrap">
+                    发布新帖子
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+    
+    <!-- 帖子列表容器 -->
+    <div id="posts-container">
+        {% include 'community/partials/posts_list.html' %}
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取所有分类链接
+    const categoryLinks = document.querySelectorAll('.category-link');
+    
+    // 为每个链接添加点击事件
+    categoryLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const slug = this.dataset.slug;
+            // 获取CSRF令牌
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            // 根据选择的是"全部"还是具体分类发送请求
+            const url = slug === 'all' ? '' : `category/${slug}/`;
+            
+            // 发送AJAX请求
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 更新帖子列表
+                document.getElementById('posts-container').innerHTML = data.posts_html;
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    });
+});
+</script>
+{% endblock %}

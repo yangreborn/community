@@ -25,16 +25,16 @@
 </head>
 
 <body class="bg-gray-100 font-sans">
+    {% csrf_token %}
     <!-- 导航栏 -->
-    <nav class="bg-blue-600 p-4 text-white">
+    <nav class="bg-gray-600 p-4 text-white">
         <div class="container mx-auto flex justify-between items-center">
             <a href="{% url 'post-list' %}" class="text-2xl font-bold">社区论坛</a>
             {% if user.is_authenticated %}
                 <div class="flex items-center">
-                    <a href="{% url 'post-create' %}" class="bg-white text-blue-600 py-2 px-4 rounded hover:bg-gray-200 ml-auto">发布新帖子</a>
                     <div class="relative ml-4">
                         <!-- 下拉菜单触发按钮 -->
-                        <button id="dropdownButton" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <button id="dropdownButton" class=" text-white px-4 py-2 rounded-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400">
                             欢迎, {{ user.username }}! <i class="fa-solid fa-caret-down"></i>
                         </button>
                         <!-- 下拉菜单内容 -->
@@ -52,6 +52,7 @@
     </nav>
     {% block content %}
     {% endblock %}
+    {% block extra_js %}{% endblock %}
     <script>
         const dropdownButton = document.getElementById('dropdownButton');
         const dropdownContent = document.getElementById('dropdownContent');

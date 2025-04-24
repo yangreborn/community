@@ -22,9 +22,20 @@
                     <p class="text-red-500 text-sm mt-1">{{ form.content.errors.0 }}</p>
                     {% endif %}
                 </div>
+                <div class="mb-6">
+                    <input type="file" name="{{ form.attachment.name }}" id="{{ form.attachment.id_for_label }}" class="hidden" onchange="updateFileName(this)">
+                    <button type="button" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="document.getElementById('{{ form.attachment.id_for_label }}').click()">附件</button>
+                    <span id="selected-file-name" class="ml-2 text-sm text-gray-600"></span>
+                </div>
                 <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">发布</button>
                 <a href="{% url 'post-list' %}" class="ml-4 text-blue-600 hover:underline">返回帖子列表</a>
             </form>
+            <script>
+            function updateFileName(input) {
+                const fileName = input.files.length > 0 ? input.files[0].name : 'No file selected';
+                document.getElementById('selected-file-name').textContent = fileName;
+            }
+            </script>
         </div>
     </div>
 {% endblock %}
