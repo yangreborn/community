@@ -3,7 +3,7 @@ import os
 from django import forms
 from django.core.exceptions import  ValidationError
 from django.conf import settings
-from .models import Post, Comment
+from .models import Post, Comment, Attachment
 
 def validate_file_extension(value):
     ext = os.path.splitext(value.name)[1][1:].lower()
@@ -18,7 +18,7 @@ def validate_file_size(value):
 class PostForm(forms.ModelForm):
     class Meta:
         model = Post
-        fields = ['title', 'content', 'category', 'attachments']
+        fields = ['title', 'content', 'category']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'border border-gray-300 rounded-md p-2 w-full focus:ring-blue-500 focus:border-blue-500'
@@ -27,6 +27,37 @@ class PostForm(forms.ModelForm):
                 'class': 'border border-gray-300 rounded-md p-2 w-full focus:ring-blue-500 focus:border-blue-500'
             })
         }
+    attachments = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False
+    )
+
+    def clean_attachments(self):
+        """验证附件数据"""
+        data = self.cleaned_data['attachments']
+        # if data:
+        #     ids = [int(id) for id in data.split(',') if id.isdigit()]
+        #     # 检查附件是否属于当前用户
+        #     valid_attachments = Attachment.objects.filter(
+        #         id__in=ids,
+        #         uploader=self.instance.author if self.instance else None
+        #     )
+        #     if len(valid_attachments) != len(ids):
+        #         raise forms.ValidationError("包含无效的附件")
+        return data
+
+        # def save(self, commit=True):
+        #     post = super().save(commit=commit)
+        #
+        #     # 关联AJAX上传的附件
+        #     attachments_ids = self.cleaned_data.get('attachments', '')
+        #     if attachments_ids:
+        #         ids = [int(id) for id in attachments_ids.split(',') if id]
+        #         attachments = Attachment.objects.filter(id__in=ids)
+        #         post.attachments.add(*attachments)
+        #
+        #     return post
+
 
 class CommentForm(forms.ModelForm):
     class Meta:

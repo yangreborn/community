@@ -12,6 +12,7 @@ urlpatterns = [
     path('<int:comment_id>/add_reply_to_comment/', views.reply_to_comment, name='add-reply-to-comment'),
     path('<int:comment_id>/delete_comment/', views.delete_comment, name='delete-comment'),
     path('category/<slug:slug>/', views.category_posts, name='category_posts'),
+    path('upload_attachment/', views.upload_attachment, name='upload_attachment'),
 ]
 
 if settings.DEBUG:

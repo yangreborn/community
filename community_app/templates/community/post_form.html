@@ -6,7 +6,7 @@
     <div class="container mx-auto py-8 px-4">
         <div class="bg-white shadow-lg rounded-lg p-8">
             <h1 class="text-3xl font-bold mb-6">发布新帖子</h1>
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" id="post-form">
                 {% csrf_token %}
                 <div class="mb-6">
                     <label for="{{ form.title.id_for_label }}" class="block text-gray-700 font-bold mb-2">标题</label>
@@ -22,20 +22,95 @@
                     <p class="text-red-500 text-sm mt-1">{{ form.content.errors.0 }}</p>
                     {% endif %}
                 </div>
-                <div class="mb-6">
-                    <input type="file" name="{{ form.attachment.name }}" id="{{ form.attachment.id_for_label }}" class="hidden" onchange="updateFileName(this)">
-                    <button type="button" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50" onclick="document.getElementById('{{ form.attachment.id_for_label }}').click()">附件</button>
-                    <span id="selected-file-name" class="ml-2 text-sm text-gray-600"></span>
+                <div>
+                    {{ form.category }}
                 </div>
+                <input type="hidden" id="attachments-ids" name="attachments" value="">
                 <button type="submit" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">发布</button>
                 <a href="{% url 'post-list' %}" class="ml-4 text-blue-600 hover:underline">返回帖子列表</a>
             </form>
-            <script>
-            function updateFileName(input) {
-                const fileName = input.files.length > 0 ? input.files[0].name : 'No file selected';
-                document.getElementById('selected-file-name').textContent = fileName;
-            }
-            </script>
+            <!-- 附件上传区域 -->
+                <div class="attachment-upload">
+                    <h3>上传附件</h3>
+                    <div id="dropzone" class="dropzone">
+                        <div class="dz-message">拖放文件或点击上传</div>
+                    </div>
+                    <div id="uploaded-files" class="mt-3"></div>
+                </div>
         </div>
     </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.js"></script>
+<script>
+// Dropzone 配置
+Dropzone.autoDiscover = false;
+$(document).ready(function() {
+    const dz = new Dropzone("#dropzone", {
+        url: "{% url 'upload_attachment' %}",
+        paramName: "file",
+        maxFilesize: 10, // MB
+        acceptedFiles: ".pdf,.doc,.docx,.jpg,.png, .py",
+        addRemoveLinks: true,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        init: function() {
+            this.on("success", function(file, response) {
+                const currentIds = $('#attachments-ids').val();
+                const newIds = currentIds ? currentIds.split(',') : [];
+                newIds.push(response.file.id);
+                $('#attachments-ids').val(newIds.join(','));
+
+                // 添加预览
+                $(`<div class="file-preview" data-id="${response.id}">
+                    ${file.name} <span class="remove-file">×</span>
+                </div>`).appendTo('#uploaded-files');
+            });
+
+            this.on("removedfile", function(file) {
+                const id = file.xhr.response.id;
+                const currentIds = $('#attachments-ids').val().split(',');
+                const newIds = currentIds.filter(x => x !== id);
+                $('#attachments-ids').val(newIds.join(','));
+            });
+        }
+    });
+
+    // 手动移除附件
+    $('#uploaded-files').on('click', '.remove-file', function() {
+            const $preview = $(this).parent();
+            const id = $preview.data('id');
+            dz.removeFile(dz.files.find(f => f.id === id));
+            $preview.remove();
+        });
+
+    $('#post-form').submit(function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        console.log(formData);
+        $.ajax({
+            url: "{% url 'post-create' %}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.redirect) {
+                    window.location.href = response.redirect;
+                }
+            },
+            error: function(xhr) {
+                alert('提交失败: ' + xhr.responseText);
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
