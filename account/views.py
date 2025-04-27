@@ -21,7 +21,7 @@ def custom_login(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            return redirect('/community/')  # 登录成功后重定向到主页，你可以替换为实际的 URL 名称
+            return redirect('/community_app/')  # 登录成功后重定向到主页，你可以替换为实际的 URL 名称
     else:
         form = AuthenticationForm()
     return render(request, 'login.html', {'form': form})
@@ -29,7 +29,7 @@ def custom_login(request):
 @csrf_protect
 def custom_logout(request):
     logout(request)
-    return redirect('/community/')  # 登出后重定向到你想要的页面，这里假设是名为 'home' 的 URL 名称
+    return redirect('/community_app/')  # 登出后重定向到你想要的页面，这里假设是名为 'home' 的 URL 名称
 
 def check_login(request):
     if not request.user.is_authenticated:

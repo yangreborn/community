@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'community_app.apps.CommunityAppConfig',
     'account',
+    'community',
 ]
 
 MIDDLEWARE = [
@@ -136,3 +138,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # 允许上传的文件类型
 ALLOWED_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx']
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # 访问 Token 的过期时间
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),  # 刷新 Token 的过期时间
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ]
+}
