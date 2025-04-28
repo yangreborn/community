@@ -1,23 +1,22 @@
-from django.db.models import F
-from django.shortcuts import render
-from rest_framework import viewsets, status, mixins
+from django.db.models import F, Q
+from rest_framework import filters
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from account.models import User
-from .models import Category, Post, PostAttachment, Comment
+from .models import Category, Post, PostAttachment, Comment, Tag
 from .serializers import (
     UserSerializer, CategorySerializer, PostSerializer,
     CommentSerializer, PostAttachmentSerializer
 )
-from .permissions import IsOwnerOrAdmin, IsAdminOrReadOnly
+from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsOwnerOrAdmin]
 
 class UserRegisterView(APIView):
     def post(self, request):
@@ -30,12 +29,29 @@ class UserRegisterView(APIView):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsOwnerOrAdmin]
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrAdmin]
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    search_fields = ['title', 'content', 'author__username']
+    ordering_fields = ('created_at', 'updated_at')
+    ordering = ('-created_at',)
+    permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # 未认证用户只能看到已审核的公开内容
+        if not self.request.user.is_authenticated:
+            return queryset.filter(approved=True, visibility='public')
+        # 认证用户可以看到自己的内容和已审核的公开内容
+        if not self.request.user.is_staff:
+            return queryset.filter(
+                (Q(approved=True, visibility='public') | Q(author=self.request.user))
+            )
+            # 管理员可以看到所有内容
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -69,17 +85,77 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer = PostAttachmentSerializer(attachment)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def approve(self, request, pk=None):
+        post = self.get_object()
+        post.approved = True
+        post.visibility = 'public'
+        post.save()
+        return Response({'status': '帖子已审核通过'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        post = self.get_object()
+        post.approved = False
+        post.visibility = 'private'
+        post.save()
+        return Response({'status': '帖子已拒绝'})
+
+    @action(detail=True, methods=['post', 'delete'])
+    def tags(self, request, pk=None):
+        post = self.get_object()
+
+        if request.method == 'POST':
+            # 添加标签
+            tag_ids = request.data.get('tag_ids', [])
+            if not isinstance(tag_ids, list):
+                tag_ids = [tag_ids]
+
+            tags = Tag.objects.filter(id__in=tag_ids)
+            post.tags.add(*tags)
+            return Response({'status': '标签添加成功'})
+
+        elif request.method == 'DELETE':
+            # 移除标签
+            tag_ids = request.data.get('tag_ids', [])
+            if not isinstance(tag_ids, list):
+                tag_ids = [tag_ids]
+
+            post.tags.remove(*tag_ids)
+            return Response({'status': '标签移除成功'})
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrAdmin]
+    permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        post_id = self.request.query_params.get('post_id')
-        if post_id:
-            queryset = queryset.filter(post_id=post_id)
+        # 未认证用户只能看到已审核的公开内容
+        if not self.request.user.is_authenticated:
+            return queryset.filter(approved=True, visibility='public')
+        # 认证用户可以看到自己的内容和已审核的公开内容
+        if not self.request.user.is_staff:
+            return queryset.filter(
+                Q(approved=True, visibility='public') |
+                Q(author=self.request.user))
+            # 管理员可以看到所有内容
         return queryset
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def approve(self, request, pk=None):
+        post = self.get_object()
+        post.approved = True
+        post.visibility = 'public'
+        post.save()
+        return Response({'status': '帖子已审核通过'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        post = self.get_object()
+        post.approved = False
+        post.save()
+        return Response({'status': '帖子已拒绝'})

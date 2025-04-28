@@ -18,6 +18,9 @@ from django.contrib import admin
 from django.contrib.messages import api
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework.documentation import include_docs_urls
+API_TITLE = 'API 文档'
+API_DESCRIPTION = '这是项目的 API 文档。'
 urlpatterns = [
    path('admin/', admin.site.urls),
    path('community_app/', include('community_app.urls')),
@@ -25,5 +28,6 @@ urlpatterns = [
    path('api/', include('community.urls')),
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+   path('docs/', include_docs_urls(title=API_TITLE, description=API_DESCRIPTION)),
 
 ]

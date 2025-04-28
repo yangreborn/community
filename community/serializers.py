@@ -1,6 +1,8 @@
+from django.db.models import Q
 from rest_framework import serializers
 from account.models import User
 from .models import Category, Post, Comment, PostAttachment
+from .utils import format_created_at
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -22,7 +24,8 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name', 'description', 'count', 'parent_id']
 
-    def get_count(self, obj):
+    @staticmethod
+    def get_count(obj):
         return len(obj.posts.all())
 
 class PostAttachmentSerializer(serializers.ModelSerializer):
@@ -32,10 +35,15 @@ class PostAttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('upload_at',)
 
 class CommentSerializer(serializers.ModelSerializer):
+    formatted_created_at = serializers.SerializerMethodField()
     class Meta:
         model = Comment
-        fields = ['id', 'author', 'post', 'content', 'created_at',]
+        fields = ['id', 'author', 'post', 'content', 'created_at', 'formatted_created_at']
         read_only_fields = ('created_at',)
+
+    @staticmethod
+    def get_formatted_created_at(obj):
+        return format_created_at(obj.created_at)
 
 class PostSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
@@ -45,14 +53,47 @@ class PostSerializer(serializers.ModelSerializer):
         source='category',
         write_only=True,
     )
-    comments = CommentSerializer(read_only=True, many=True)
     attachments = PostAttachmentSerializer(read_only=True, many=True)
-
+    formatted_created_at = serializers.SerializerMethodField()
+    comments = serializers.SerializerMethodField()
+    relative_posts = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
         fields = [
-            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments',
-            'created_at', 'updated_at', 'is_pinned', 'view_count',  'attachments'
+            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments', 'relative_posts',
+            'created_at', 'updated_at', 'is_pinned', 'view_count',  'attachments', 'formatted_created_at',
         ]
         read_only_fields = ('created_at', 'updated_at', 'author', 'view_count', )
+
+    @staticmethod
+    def get_formatted_created_at(obj):
+        return format_created_at(obj.created_at)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        # 对非作者和管理员隐藏部分字段
+        if not (request.user.is_staff or instance.author == request.user):
+            if not instance.approved:
+                data['content'] = "内容正在审核中，暂时不可见"
+        return data
+
+    def get_comments(self, obj):
+        request = self.context.get('request')
+        comments = obj.comments.all()
+        # 未认证用户只能看到已审核的公开评论
+        if not request or not request.user.is_authenticated:
+            comments = comments.filter(approved=True, visibility='public')
+        # 认证非管理员用户可以看到已审核公开评论和自己的评论
+        elif not request.user.is_staff:
+            comments = comments.filter(
+                Q(approved=True, visibility='public') |
+                Q(author=request.user)
+            )
+        return CommentSerializer(comments, many=True, context=self.context).data
+
+    @staticmethod
+    def get_relative_posts(obj):
+        posts = Post.objects.filter(tags__in=obj.tags.all()).order_by('-view_count')
+        return posts if len(posts) <= 5 else posts[:5]

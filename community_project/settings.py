@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-d3#j)oj7ml%klxa&97ts+j&c9eb07_&4hw-r27ihnni(64t3zq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'community_app.apps.CommunityAppConfig',
     'account',
     'community',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [
@@ -145,6 +146,7 @@ SIMPLE_JWT = {
 }
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ]
