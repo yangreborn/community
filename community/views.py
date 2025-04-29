@@ -1,4 +1,4 @@
-from django.db.models import F, Q
+from django.db.models import F, Q, Count
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -9,7 +9,7 @@ from account.models import User
 from .models import Category, Post, PostAttachment, Comment, Tag
 from .serializers import (
     UserSerializer, CategorySerializer, PostSerializer,
-    CommentSerializer, PostAttachmentSerializer
+    CommentSerializer, PostAttachmentSerializer, TagSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
 
@@ -36,7 +36,7 @@ class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ['title', 'content', 'author__username']
-    ordering_fields = ('created_at', 'updated_at')
+    ordering_fields = ('created_at', )
     ordering = ('-created_at',)
     permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
 
@@ -87,6 +87,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
+        """帖子审核通过"""
         post = self.get_object()
         post.approved = True
         post.visibility = 'public'
@@ -95,6 +96,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def reject(self, request, pk=None):
+        """帖子审核驳回"""
         post = self.get_object()
         post.approved = False
         post.visibility = 'private'
@@ -103,8 +105,8 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post', 'delete'])
     def tags(self, request, pk=None):
+        """帖子标签的增删"""
         post = self.get_object()
-
         if request.method == 'POST':
             # 添加标签
             tag_ids = request.data.get('tag_ids', [])
@@ -114,7 +116,6 @@ class PostViewSet(viewsets.ModelViewSet):
             tags = Tag.objects.filter(id__in=tag_ids)
             post.tags.add(*tags)
             return Response({'status': '标签添加成功'})
-
         elif request.method == 'DELETE':
             # 移除标签
             tag_ids = request.data.get('tag_ids', [])
@@ -123,6 +124,24 @@ class PostViewSet(viewsets.ModelViewSet):
 
             post.tags.remove(*tag_ids)
             return Response({'status': '标签移除成功'})
+
+    @action(detail=True, methods=['get'])
+    def related(self, request, pk=None):
+        """基于标签的相关帖子推荐"""
+        post = self.get_object()
+        # 获取共享至少一个标签的帖子，按共享标签数排序
+        related_posts = Post.objects.filter(
+            tags__in=post.tags.all()
+        ).exclude(
+            id=post.id
+        ).annotate(
+            common_tags=Count('tags')
+        ).order_by(
+            '-common_tags',
+            '-created_at'
+        )[:5]  # 限制返回数量
+        serializer = self.get_serializer(related_posts, many=True)
+        return Response(serializer.data)
 
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
@@ -151,11 +170,16 @@ class CommentViewSet(viewsets.ModelViewSet):
         post.approved = True
         post.visibility = 'public'
         post.save()
-        return Response({'status': '帖子已审核通过'})
+        return Response({'status': '回复1已审核通过'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def reject(self, request, pk=None):
+    def reject(self, request):
         post = self.get_object()
         post.approved = False
         post.save()
-        return Response({'status': '帖子已拒绝'})
+        return Response({'status': '回复已拒绝'})
+
+class TagViewSet(viewsets.ModelViewSet):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+    permission_classes = [IsAdminUser]

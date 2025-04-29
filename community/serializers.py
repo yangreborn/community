@@ -1,7 +1,7 @@
 from django.db.models import Q
 from rest_framework import serializers
 from account.models import User
-from .models import Category, Post, Comment, PostAttachment
+from .models import Category, Post, Comment, PostAttachment, Tag
 from .utils import format_created_at
 
 class UserSerializer(serializers.ModelSerializer):
@@ -45,6 +45,11 @@ class CommentSerializer(serializers.ModelSerializer):
     def get_formatted_created_at(obj):
         return format_created_at(obj.created_at)
 
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'name']
+
 class PostSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     category = CategorySerializer(read_only=True)
@@ -56,12 +61,16 @@ class PostSerializer(serializers.ModelSerializer):
     attachments = PostAttachmentSerializer(read_only=True, many=True)
     formatted_created_at = serializers.SerializerMethodField()
     comments = serializers.SerializerMethodField()
-    relative_posts = serializers.SerializerMethodField()
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        source='tags',
+        read_only=True,
+    )
 
     class Meta:
         model = Post
         fields = [
-            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments', 'relative_posts',
+            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments', 'tag_ids',
             'created_at', 'updated_at', 'is_pinned', 'view_count',  'attachments', 'formatted_created_at',
         ]
         read_only_fields = ('created_at', 'updated_at', 'author', 'view_count', )
@@ -70,14 +79,14 @@ class PostSerializer(serializers.ModelSerializer):
     def get_formatted_created_at(obj):
         return format_created_at(obj.created_at)
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        request = self.context.get('request')
-        # 对非作者和管理员隐藏部分字段
-        if not (request.user.is_staff or instance.author == request.user):
-            if not instance.approved:
-                data['content'] = "内容正在审核中，暂时不可见"
-        return data
+    # def to_representation(self, instance):
+    #     data = super().to_representation(instance)
+    #     request = self.context.get('request')
+    #     # 对非作者和管理员隐藏部分字段
+    #     if not (request.user.is_staff or instance.author == request.user):
+    #         if not instance.approved:
+    #             data['content'] = "内容正在审核中，暂时不可见"
+    #     return data
 
     def get_comments(self, obj):
         request = self.context.get('request')
@@ -93,7 +102,3 @@ class PostSerializer(serializers.ModelSerializer):
             )
         return CommentSerializer(comments, many=True, context=self.context).data
 
-    @staticmethod
-    def get_relative_posts(obj):
-        posts = Post.objects.filter(tags__in=obj.tags.all()).order_by('-view_count')
-        return posts if len(posts) <= 5 else posts[:5]
