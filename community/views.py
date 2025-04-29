@@ -2,8 +2,8 @@ from django.db.models import F, Q, Count
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from account.models import User
 from .models import Category, Post, PostAttachment, Comment, Tag
@@ -18,7 +18,8 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsOwnerOrAdmin]
 
-class UserRegisterView(APIView):
+class UserRegisterView(GenericAPIView):
+    serializer_class = UserSerializer
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():

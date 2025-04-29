@@ -42,7 +42,7 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_at',)
 
     @staticmethod
-    def get_formatted_created_at(obj):
+    def get_formatted_created_at(obj) -> str:
         return format_created_at(obj.created_at)
 
 class TagSerializer(serializers.ModelSerializer):
@@ -76,7 +76,7 @@ class PostSerializer(serializers.ModelSerializer):
         read_only_fields = ('created_at', 'updated_at', 'author', 'view_count', )
 
     @staticmethod
-    def get_formatted_created_at(obj):
+    def get_formatted_created_at(obj) -> str:
         return format_created_at(obj.created_at)
 
     # def to_representation(self, instance):
