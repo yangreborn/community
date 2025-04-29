@@ -132,7 +132,8 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         # 获取共享至少一个标签的帖子，按共享标签数排序
         related_posts = Post.objects.filter(
-            tags__in=post.tags.all()
+            Q(approved=True, visibility='public') &
+            Q(tags__in=post.tags.all())
         ).exclude(
             id=post.id
         ).annotate(
@@ -184,3 +185,21 @@ class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [IsAdminUser]
+
+
+class UnrepliedPostList(GenericAPIView):
+    serializer_class = PostSerializer
+    permission_classes = [IsAdminUser]
+    def get_queryset(self):
+        admin_users = User.objects.filter(role='ADMIN')
+        # 获取所有有管理员回复的帖子ID
+        replied_post_ids = Comment.objects.filter(
+            author__in=admin_users
+        ).values_list('post_id', flat=True).distinct()
+
+        # 返回未被管理员回复的帖子
+        return Post.objects.exclude(
+            id__in=replied_post_ids
+        ).exclude(
+            author__in=admin_users  # 可选：排除管理员自己发的帖子
+        ).order_by('-created_at')
