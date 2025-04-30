@@ -9,7 +9,7 @@ class IsOwnerAdminOrApproved(permissions.BasePermission):
         if hasattr(obj, 'author') and obj.author == request.user:
             return True
         # 允许查看已审核通过的内容
-        return obj.approved
+        return obj.is_create_approved
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):

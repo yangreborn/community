@@ -1,4 +1,7 @@
+from django.utils import timezone
+
 from django.db.models import F, Q, Count
+from django.shortcuts import get_object_or_404
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -9,7 +12,7 @@ from account.models import User
 from .models import Category, Post, PostAttachment, Comment, Tag
 from .serializers import (
     UserSerializer, CategorySerializer, PostSerializer,
-    CommentSerializer, PostAttachmentSerializer, TagSerializer
+    CommentSerializer, PostAttachmentSerializer, TagSerializer, PostEditRequestSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
 
@@ -43,16 +46,53 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        #检查是否是请求未回复帖子列表的特殊情况
+        is_unreplied_endpoint = getattr(self, 'action', None) == 'unreplied'
+
         # 未认证用户只能看到已审核的公开内容
         if not self.request.user.is_authenticated:
-            return queryset.filter(approved=True, visibility='public')
-        # 认证用户可以看到自己的内容和已审核的公开内容
+            return queryset.filter(is_create_approved=True, visibility='public')
+
+        # 管理员查看未回复帖子
+        if is_unreplied_endpoint and self.request.user.is_staff:
+            # 获取所有有管理员回复的帖子ID
+            replied_post_ids = Comment.objects.filter(
+                author__is_staff=True
+            ).values_list('post_id', flat=True).distinct()
+
+            # 返回未被管理员回复的帖子（排除管理员自己发的帖子）
+            return queryset.exclude(
+                Q(id__in=replied_post_ids) | Q(author__is_staff=True)
+            ).filter(
+                is_create_approved=True  # 可选：只显示已审核的帖子
+            ).order_by('-created_at')
+
+        # 普通认证用户可以看到自己的内容和已审核的公开内容
         if not self.request.user.is_staff:
             return queryset.filter(
-                (Q(approved=True, visibility='public') | Q(author=self.request.user))
+                Q(is_create_approved=True, visibility='public') | Q(author=self.request.user)
             )
-            # 管理员可以看到所有内容
         return queryset
+
+    @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
+    def request_edit(self, request, pk=None):
+        """用户提交编辑请求"""
+        post = self.get_object()
+        serializer = PostEditRequestSerializer(
+            post,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        post.edited_title = serializer.validated_data.get('title')
+        post.edited_content = serializer.validated_data.get('content')
+        post.last_edited_at = timezone.now()
+        post.is_edit_approved = False
+        post.save()
+        return Response(
+            {'status': '编辑请求已提交，等待审核'},
+            status=status.HTTP_202_ACCEPTED
+        )
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -62,6 +102,16 @@ class PostViewSet(viewsets.ModelViewSet):
         # 使用F()表达式避免竞争条件
         Post.objects.filter(pk=instance.pk).update(view_count=F('view_count') + 1)
         serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    def unreplied(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     @action(detail=True, methods=['post'])
     def pin(self, request, pk):
@@ -87,22 +137,46 @@ class PostViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def approve(self, request, pk=None):
+    def create_approve(self, request, pk=None):
         """帖子审核通过"""
         post = self.get_object()
-        post.approved = True
+        post.is_create_approved = True
         post.visibility = 'public'
         post.save()
         return Response({'status': '帖子已审核通过'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def reject(self, request, pk=None):
+    def create_reject(self, request, pk=None):
         """帖子审核驳回"""
         post = self.get_object()
-        post.approved = False
+        post.is_create_approved = False
         post.visibility = 'private'
         post.save()
         return Response({'status': '帖子已拒绝'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def edit_approve(self, request, pk=None):
+        """编辑审核通过"""
+        post = self.get_object()
+        if not post.edited_content:
+            return Response({'error': '该帖子没有待审核的编辑'}, status=400)
+        # 批准编辑
+        post.current_content = post.edited_content
+        post.edited_content = None
+        post.is_edit_approved = True
+        post.save()
+        return Response({'status': '编辑已批准'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def edit_reject(self, request, pk=None):
+        """编辑审核驳回"""
+        post = self.get_object()
+        if not post.edited_content:
+            return Response({'error': '该帖子没有待审核的编辑'}, status=400)
+        # 批准编辑
+        post.is_edit_approved = False
+        post.save()
+        return Response({'status': '编辑已拒绝'})
 
     @action(detail=True, methods=['post', 'delete'])
     def tags(self, request, pk=None):
@@ -132,7 +206,7 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         # 获取共享至少一个标签的帖子，按共享标签数排序
         related_posts = Post.objects.filter(
-            Q(approved=True, visibility='public') &
+            Q(is_create_approved=True, visibility='public') &
             Q(tags__in=post.tags.all())
         ).exclude(
             id=post.id
@@ -157,11 +231,11 @@ class CommentViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         # 未认证用户只能看到已审核的公开内容
         if not self.request.user.is_authenticated:
-            return queryset.filter(approved=True, visibility='public')
+            return queryset.filter(is_create_approved=True, visibility='public')
         # 认证用户可以看到自己的内容和已审核的公开内容
         if not self.request.user.is_staff:
             return queryset.filter(
-                Q(approved=True, visibility='public') |
+                Q(is_create_approved=True, visibility='public') |
                 Q(author=self.request.user))
             # 管理员可以看到所有内容
         return queryset
@@ -187,11 +261,12 @@ class TagViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
-class UnrepliedPostList(GenericAPIView):
+class UnrepliedViewSet(GenericAPIView):
+    queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = [IsAdminUser]
     def get_queryset(self):
-        admin_users = User.objects.filter(role='ADMIN')
+        admin_users = User.objects.filter(is_staff=True)
         # 获取所有有管理员回复的帖子ID
         replied_post_ids = Comment.objects.filter(
             author__in=admin_users
