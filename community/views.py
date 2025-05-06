@@ -246,7 +246,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         post.approved = True
         post.visibility = 'public'
         post.save()
-        return Response({'status': '回复1已审核通过'})
+        return Response({'status': '回复已审核通过'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def reject(self, request):
