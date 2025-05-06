@@ -1,6 +1,5 @@
 from django.utils import timezone
 from django.db.models import F, Q, Count
-from django.shortcuts import get_object_or_404
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -252,17 +251,18 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
-        post = self.get_object()
-        post.approved = True
-        post.visibility = 'public'
-        post.save()
+        comment = self.get_object()
+        comment.is_create_approved = True
+        comment.visibility = 'public'
+        comment.save()
         return Response({'status': '回复已审核通过'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def reject(self, request):
-        post = self.get_object()
-        post.approved = False
-        post.save()
+        comment = self.get_object()
+        comment.is_create_approved = False
+        comment.visibility = 'private'
+        comment.save()
         return Response({'status': '回复已拒绝'})
 
 class TagViewSet(viewsets.ModelViewSet):

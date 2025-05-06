@@ -68,13 +68,14 @@ class PostSerializer(serializers.ModelSerializer):
     )
     title = serializers.SerializerMethodField()
     content = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
         fields = [
             'id', 'title', 'content', 'author', 'category', 'category_id', 'comments',
             'tag_ids', 'created_at', 'updated_at', 'is_pinned', 'view_count',
-            'attachments', 'formatted_created_at',
+            'attachments', 'formatted_created_at', 'comments_count',
         ]
         read_only_fields = ('created_at', 'updated_at', 'author', 'view_count',)
 
@@ -95,6 +96,9 @@ class PostSerializer(serializers.ModelSerializer):
                 Q(author=request.user)
             )
         return CommentSerializer(comments, many=True, context=self.context).data
+
+    def get_comments_count(self, obj):
+        return len(self.get_comments(obj))
 
     def get_title(self, obj):
         obj._request_user = self.context['request'].user

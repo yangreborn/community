@@ -1,5 +1,4 @@
 from django.db import models
-from django.db.models import ForeignKey
 
 from account.models import User
 # Create your models here.
