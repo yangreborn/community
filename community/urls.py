@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from community.views import PostViewSet, CategoryViewSet, CommentViewSet, UserViewSet, UserRegisterView, TagViewSet, UnrepliedViewSet
+from community.views import PostViewSet, CategoryViewSet, CommentViewSet, UserViewSet, UserRegisterView, TagViewSet
 
 router = DefaultRouter()
 router.register('users', UserViewSet)

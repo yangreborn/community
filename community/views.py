@@ -1,11 +1,11 @@
 from django.utils import timezone
-
 from django.db.models import F, Q, Count
 from django.shortcuts import get_object_or_404
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.generics import GenericAPIView
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 
 from account.models import User
@@ -43,6 +43,7 @@ class PostViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', )
     ordering = ('-created_at',)
     permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
+    pagination_class = LimitOffsetPagination
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -110,7 +111,16 @@ class PostViewSet(viewsets.ModelViewSet):
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    def unapproved(self, request):
+        queryset = self.filter_queryset(self.get_queryset()).filter(is_create_approved=False)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     @action(detail=True, methods=['post'])
@@ -259,22 +269,3 @@ class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [IsAdminUser]
-
-
-class UnrepliedViewSet(GenericAPIView):
-    queryset = Post.objects.all()
-    serializer_class = PostSerializer
-    permission_classes = [IsAdminUser]
-    def get_queryset(self):
-        admin_users = User.objects.filter(is_staff=True)
-        # 获取所有有管理员回复的帖子ID
-        replied_post_ids = Comment.objects.filter(
-            author__in=admin_users
-        ).values_list('post_id', flat=True).distinct()
-
-        # 返回未被管理员回复的帖子
-        return Post.objects.exclude(
-            id__in=replied_post_ids
-        ).exclude(
-            author__in=admin_users  # 可选：排除管理员自己发的帖子
-        ).order_by('-created_at')

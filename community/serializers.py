@@ -82,35 +82,19 @@ class PostSerializer(serializers.ModelSerializer):
     def get_formatted_created_at(obj) -> str:
         return format_created_at(obj.created_at)
 
-    # def to_representation(self, instance):
-    #     data = super().to_representation(instance)
-    #     request = self.context.get('request')
-    #     # 对非作者和管理员隐藏部分字段
-    #     if not (request.user.is_staff or instance.author == request.user):
-    #         if not instance.approved:
-    #             data['content'] = "内容正在审核中，暂时不可见"
-    #     return data
-
     def get_comments(self, obj):
         request = self.context.get('request')
         comments = obj.comments.all()
-        # 未认证用户只能看到已审核的公开评论
+        # 未认证用户只能看到已审核的公开回复
         if not request or not request.user.is_authenticated:
             comments = comments.filter(is_create_approved=True, visibility='public')
-        # 认证非管理员用户可以看到已审核公开评论和自己的评论
+        # 认证非管理员用户可以看到已审核公开评论和自己的回复
         elif not request.user.is_staff:
             comments = comments.filter(
                 Q(is_create_approved=True, visibility='public') |
                 Q(author=request.user)
             )
         return CommentSerializer(comments, many=True, context=self.context).data
-
-    # def get_truncated_text(self, obj):
-    #     # 截取前100个字符，并添加省略号（如果需要）
-    #     max_length = 100
-    #     if len(obj.content) > max_length:
-    #         return obj.content[:max_length] + '...'
-    #     return obj.content
 
     def get_title(self, obj):
         obj._request_user = self.context['request'].user
