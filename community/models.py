@@ -41,6 +41,9 @@ class Post(models.Model):
     is_create_approved = models.BooleanField(default=False)
     is_edit_approved = models.BooleanField(default=True)
     last_edited_at = models.DateTimeField(null=True, blank=True)
+    is_able = models.BooleanField(default=True)
+    fake_name = models.CharField(max_length=100, null=True, blank=True)
+
     class Meta:
         ordering = ['-is_pinned', '-created_at']
 
@@ -75,6 +78,7 @@ class Comment(models.Model):
     is_create_approved = models.BooleanField(default=False)
     is_edit_approved = models.BooleanField(default=True)
     last_edited_at = models.DateTimeField(null=True, blank=True)
+    is_able = models.BooleanField(default=True)
     class Meta:
         ordering = ['-created_at']
 

@@ -74,10 +74,10 @@ class PostSerializer(serializers.ModelSerializer):
         model = Post
         fields = [
             'id', 'title', 'content', 'author', 'category', 'category_id', 'comments',
-            'tag_ids', 'created_at', 'updated_at', 'is_pinned', 'view_count',
-            'attachments', 'formatted_created_at', 'comments_count',
+            'tag_ids', 'created_at', 'updated_at',  'view_count', 'is_pinned',
+            'attachments', 'formatted_created_at', 'comments_count', 'is_able', 'fake_name',
         ]
-        read_only_fields = ('created_at', 'updated_at', 'author', 'view_count',)
+        read_only_fields = ('created_at', 'updated_at', 'author', 'view_count', 'is_able', 'comments_count', )
 
     @staticmethod
     def get_formatted_created_at(obj) -> str:
@@ -88,13 +88,12 @@ class PostSerializer(serializers.ModelSerializer):
         comments = obj.comments.all()
         # 未认证用户只能看到已审核的公开回复
         if not request or not request.user.is_authenticated:
-            comments = comments.filter(is_create_approved=True, visibility='public')
+            comments = comments.filter(is_create_approved=True, visibility='public').exclude(is_able=False)
         # 认证非管理员用户可以看到已审核公开评论和自己的回复
         elif not request.user.is_staff:
             comments = comments.filter(
-                Q(is_create_approved=True, visibility='public') |
-                Q(author=request.user)
-            )
+                Q(is_create_approved=True, visibility='public') | Q(author=request.user)
+            ).exclude(is_able=False)
         return CommentSerializer(comments, many=True, context=self.context).data
 
     def get_comments_count(self, obj):

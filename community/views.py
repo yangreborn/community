@@ -4,7 +4,7 @@ from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.generics import GenericAPIView
-from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from account.models import User
@@ -29,7 +29,18 @@ class UserRegisterView(GenericAPIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size = 10  # 每页显示的记录数
+    page_size_query_param = 'page_size'  # 允许客户端通过该参数指定每页显示的记录数
+    max_page_size = 100  # 每页最大显示的记录数
+
 class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    get:
+    Return all snippets.
+    post:
+    Create a new snippet instance.
+    """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsOwnerOrAdmin]
@@ -42,37 +53,58 @@ class PostViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', )
     ordering = ('-created_at',)
     permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
-    pagination_class = LimitOffsetPagination
+    pagination_class = CustomPageNumberPagination
 
     def get_queryset(self):
+        """
+        This view should return a list of all the posts
+        Returns:
+
+        """
         queryset = super().get_queryset()
         #检查是否是请求未回复帖子列表的特殊情况
         is_unreplied_endpoint = getattr(self, 'action', None) == 'unreplied'
 
         # 未认证用户只能看到已审核的公开内容
         if not self.request.user.is_authenticated:
-            return queryset.filter(is_create_approved=True, visibility='public')
+            return queryset.filter(is_create_approved=True, visibility='public').exclude(is_able=False)
 
         # 管理员查看未回复帖子
         if is_unreplied_endpoint and self.request.user.is_staff:
             # 获取所有有管理员回复的帖子ID
             replied_post_ids = Comment.objects.filter(
                 author__is_staff=True
-            ).values_list('post_id', flat=True).distinct()
+            ).exclude(is_able=False).values_list('post_id', flat=True).distinct()
 
             # 返回未被管理员回复的帖子（排除管理员自己发的帖子）
             return queryset.exclude(
                 Q(id__in=replied_post_ids) | Q(author__is_staff=True)
             ).filter(
                 is_create_approved=True  # 可选：只显示已审核的帖子
-            ).order_by('-created_at')
+            ).exclude(is_able=False).order_by('-created_at')
 
         # 普通认证用户可以看到自己的内容和已审核的公开内容
         if not self.request.user.is_staff:
             return queryset.filter(
                 Q(is_create_approved=True, visibility='public') | Q(author=self.request.user)
-            )
+            ).exclude(is_able=False)
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        # 获取要删除的对象
+        instance = self.get_object()
+
+        # 这里可以添加自定义的逻辑，例如记录日志
+        print(f"Deleting book: {instance.title}")
+
+        # 检查是否有特定的权限
+        if request.user.is_staff:
+            # 执行删除操作
+            instance.save(is_able=False)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"detail": "You do not have permission to delete this book."},
+                            status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
     def request_edit(self, request, pk=None):
@@ -115,7 +147,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def unapproved(self, request):
-        queryset = self.filter_queryset(self.get_queryset()).filter(is_create_approved=False)
+        queryset = self.filter_queryset(self.get_queryset()).filter(is_create_approved=False, is_able=True)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -218,7 +250,7 @@ class PostViewSet(viewsets.ModelViewSet):
             Q(is_create_approved=True, visibility='public') &
             Q(tags__in=post.tags.all())
         ).exclude(
-            id=post.id
+            id=post.id, is_able=False
         ).annotate(
             common_tags=Count('tags')
         ).order_by(
@@ -245,7 +277,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff:
             return queryset.filter(
                 Q(is_create_approved=True, visibility='public') |
-                Q(author=self.request.user))
+                Q(author=self.request.user)).exclude(is_able=False)
             # 管理员可以看到所有内容
         return queryset
 
