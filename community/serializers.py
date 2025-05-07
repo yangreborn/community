@@ -36,11 +36,9 @@ class PostAttachmentSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     formatted_created_at = serializers.SerializerMethodField(help_text='格式化创建时间')
-    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
-    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
     class Meta:
         model = Comment
-        fields = ['id', 'author', 'post', 'content', 'created_at', 'formatted_created_at']
+        fields = ['id', 'author', 'post', 'content', 'created_at', 'formatted_created_at', 'parent_comment']
         read_only_fields = ('created_at',)
 
     @staticmethod
@@ -71,8 +69,6 @@ class PostDetailSerializer(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
     content = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField(help_text='回复数')
-    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
-    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
     class Meta:
         model = Post
         fields = [

@@ -47,10 +47,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
-    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    filter_backends = (filters.SearchFilter, )
     search_fields = ['title', 'content', 'author__username']
-    ordering_fields = ('created_at', )
-    ordering = ('-created_at',)
     permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
     pagination_class = CustomPageNumberPagination
 
@@ -80,7 +78,7 @@ class PostViewSet(viewsets.ModelViewSet):
                 Q(id__in=replied_post_ids) | Q(author__is_staff=True)
             ).filter(
                 is_create_approved=True  # 可选：只显示已审核的帖子
-            ).exclude(is_able=False).order_by('-created_at')
+            ).exclude(is_able=False)
 
         # 普通认证用户可以看到自己的内容和已审核的公开内容
         if not self.request.user.is_staff:
