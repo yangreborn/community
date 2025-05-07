@@ -10,8 +10,8 @@ from rest_framework.response import Response
 from account.models import User
 from .models import Category, Post, PostAttachment, Comment, Tag
 from .serializers import (
-    UserSerializer, CategorySerializer, PostSerializer,
-    CommentSerializer, PostAttachmentSerializer, TagSerializer, PostEditRequestSerializer
+    UserSerializer, CategorySerializer, PostDetailSerializer,
+    CommentSerializer, PostAttachmentSerializer, TagSerializer, PostCreateOrEditSerializer
 )
 from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
 
@@ -47,7 +47,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
-    serializer_class = PostSerializer
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ['title', 'content', 'author__username']
     ordering_fields = ('created_at', )
@@ -55,12 +54,12 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
     pagination_class = CustomPageNumberPagination
 
-    def get_queryset(self):
-        """
-        This view should return a list of all the posts
-        Returns:
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return PostCreateOrEditSerializer
+        return PostDetailSerializer
 
-        """
+    def get_queryset(self):
         queryset = super().get_queryset()
         #检查是否是请求未回复帖子列表的特殊情况
         is_unreplied_endpoint = getattr(self, 'action', None) == 'unreplied'
@@ -91,14 +90,12 @@ class PostViewSet(viewsets.ModelViewSet):
         return queryset
 
     def destroy(self, request, *args, **kwargs):
-        # 获取要删除的对象
+        """
+        删除帖子，管理员或作者权限
+        """
         instance = self.get_object()
-
-        # 这里可以添加自定义的逻辑，例如记录日志
-        print(f"Deleting book: {instance.title}")
-
         # 检查是否有特定的权限
-        if request.user.is_staff:
+        if request.user.is_staff or request.user == instance.author:
             # 执行删除操作
             instance.save(is_able=False)
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -108,13 +105,11 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
     def request_edit(self, request, pk=None):
-        """用户提交编辑请求"""
+        """
+        编辑帖子请求，管理员或作者权限
+        """
         post = self.get_object()
-        serializer = PostEditRequestSerializer(
-            post,
-            data=request.data,
-            partial=True
-        )
+        serializer = PostCreateOrEditSerializer(post, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         post.edited_title = serializer.validated_data.get('title')
         post.edited_content = serializer.validated_data.get('content')
@@ -127,7 +122,7 @@ class PostViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        serializer.save(author=self.request.user, created_by=self.request.user)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -137,6 +132,9 @@ class PostViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def unreplied(self, request):
+        """
+        获取未回复的数据列表，管理员权限
+        """
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -147,6 +145,9 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def unapproved(self, request):
+        """
+        获取未审批且可用的对象列表，管理员权限
+        """
         queryset = self.filter_queryset(self.get_queryset()).filter(is_create_approved=False, is_able=True)
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -154,22 +155,24 @@ class PostViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def pin(self, request, pk):
+        """
+        未置顶设为置顶，已置顶取消置顶，管理员权限
+        """
         post = self.get_object()
-        if not request.user.is_admin():
-            return Response({"error":"只有管理员可以置顶"}, status=status.HTTP_403_FORBIDDEN)
-
         post.is_pinned = not post.is_pinned
         post.save()
         return Response({'status' : '置顶成功' if post.is_pinned else '取消置顶成功'}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
     def upload_attachment(self, request, pk):
+        """
+        上传附件，管理员和作者权限
+        """
         post = self.get_object()
         if post.author != request.user and not request.user.is_admin():
             return Response({'error': '没有上传权限'}, status=status.HTTP_403_FORBIDDEN)
-
         file = request.FILES.get('file')
         if not file:
             return Response({'error':'没有提供文件'}, status=status.HTTP_400_BAD_REQUEST)
@@ -179,7 +182,9 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def create_approve(self, request, pk=None):
-        """帖子审核通过"""
+        """
+        创建帖子审核通过，管理员权限
+        """
         post = self.get_object()
         post.is_create_approved = True
         post.visibility = 'public'
@@ -188,7 +193,9 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def create_reject(self, request, pk=None):
-        """帖子审核驳回"""
+        """
+        创建帖子审核驳回，管理员权限
+        """
         post = self.get_object()
         post.is_create_approved = False
         post.visibility = 'private'
@@ -197,12 +204,16 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def edit_approve(self, request, pk=None):
-        """编辑审核通过"""
+        """
+        编辑帖子审核通过，管理员权限
+        """
         post = self.get_object()
-        if not post.edited_content:
+        if not post.edited_content and not post.edited_title:
             return Response({'error': '该帖子没有待审核的编辑'}, status=400)
         # 批准编辑
-        post.current_content = post.edited_content
+        post.title = post.edited_title if post.edited_title else post.title
+        post.content = post.edited_content if post.edited_content else post.content
+        post.edited_title = None
         post.edited_content = None
         post.is_edit_approved = True
         post.save()
@@ -210,18 +221,22 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def edit_reject(self, request, pk=None):
-        """编辑审核驳回"""
+        """
+        编辑帖子审核驳回，管理员权限
+        """
         post = self.get_object()
-        if not post.edited_content:
+        if not post.edited_content and not post.edited_title:
             return Response({'error': '该帖子没有待审核的编辑'}, status=400)
         # 批准编辑
         post.is_edit_approved = False
         post.save()
         return Response({'status': '编辑已拒绝'})
 
-    @action(detail=True, methods=['post', 'delete'])
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAdminUser])
     def tags(self, request, pk=None):
-        """帖子标签的增删"""
+        """
+        新增，删除帖子标签，管理员权限
+        """
         post = self.get_object()
         if request.method == 'POST':
             # 添加标签
@@ -243,7 +258,9 @@ class PostViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def related(self, request, pk=None):
-        """基于标签的相关帖子推荐"""
+        """
+        获取帖子的相关推荐帖子
+        """
         post = self.get_object()
         # 获取共享至少一个标签的帖子，按共享标签数排序
         related_posts = Post.objects.filter(
@@ -259,6 +276,16 @@ class PostViewSet(viewsets.ModelViewSet):
         )[:5]  # 限制返回数量
         serializer = self.get_serializer(related_posts, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    def create_fake_post(self, request):
+        """
+        创建伪作者帖子，管理员权限
+        """
+        serializer = PostCreateOrEditSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
@@ -282,7 +309,10 @@ class CommentViewSet(viewsets.ModelViewSet):
         return queryset
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def approve(self, request, pk=None):
+    def create_approve(self, request, pk=None):
+        """
+        创建回复审核通过，管理员权限
+        """
         comment = self.get_object()
         comment.is_create_approved = True
         comment.visibility = 'public'
@@ -290,12 +320,43 @@ class CommentViewSet(viewsets.ModelViewSet):
         return Response({'status': '回复已审核通过'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def reject(self, request):
+    def create_reject(self, request):
+        """
+        创建回复审核驳回，管理员权限
+        """
         comment = self.get_object()
         comment.is_create_approved = False
         comment.visibility = 'private'
         comment.save()
         return Response({'status': '回复已拒绝'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def edit_approve(self, request, pk=None):
+        """
+        编辑回复审核通过，管理员权限
+        """
+        comment = self.get_object()
+        if not comment.edited_content:
+            return Response({'error': '该回复没有待审核的编辑'}, status=400)
+        # 批准编辑
+        comment.content = comment.edited_content
+        comment.edited_content = None
+        comment.is_edit_approved = True
+        comment.save()
+        return Response({'status': '编辑已批准'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def edit_reject(self, request, pk=None):
+        """
+        编辑回复审核驳回，管理员权限
+        """
+        comment = self.get_object()
+        if not comment.edited_content:
+            return Response({'error': '该回复没有待审核的编辑'}, status=400)
+        # 批准编辑
+        comment.is_edit_approved = False
+        comment.save()
+        return Response({'status': '编辑已拒绝'})
 
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()

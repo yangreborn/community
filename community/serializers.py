@@ -19,7 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 class CategorySerializer(serializers.ModelSerializer):
-    count = serializers.SerializerMethodField()
+    count = serializers.SerializerMethodField(help_text='分类下帖子数')
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'count', 'parent_id']
@@ -35,7 +35,9 @@ class PostAttachmentSerializer(serializers.ModelSerializer):
         read_only_fields = ('upload_at',)
 
 class CommentSerializer(serializers.ModelSerializer):
-    formatted_created_at = serializers.SerializerMethodField()
+    formatted_created_at = serializers.SerializerMethodField(help_text='格式化创建时间')
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
     class Meta:
         model = Comment
         fields = ['id', 'author', 'post', 'content', 'created_at', 'formatted_created_at']
@@ -50,7 +52,7 @@ class TagSerializer(serializers.ModelSerializer):
         model = Tag
         fields = ['id', 'name']
 
-class PostSerializer(serializers.ModelSerializer):
+class PostDetailSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
     category = CategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
@@ -59,7 +61,7 @@ class PostSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     attachments = PostAttachmentSerializer(read_only=True, many=True)
-    formatted_created_at = serializers.SerializerMethodField()
+    formatted_created_at = serializers.SerializerMethodField(help_text='格式化创建时间')
     comments = serializers.SerializerMethodField()
     tag_ids = serializers.PrimaryKeyRelatedField(
         many=True,
@@ -68,14 +70,15 @@ class PostSerializer(serializers.ModelSerializer):
     )
     title = serializers.SerializerMethodField()
     content = serializers.SerializerMethodField()
-    comments_count = serializers.SerializerMethodField()
-
+    comments_count = serializers.SerializerMethodField(help_text='回复数')
+    created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
     class Meta:
         model = Post
         fields = [
             'id', 'title', 'content', 'author', 'category', 'category_id', 'comments',
             'tag_ids', 'created_at', 'updated_at',  'view_count', 'is_pinned',
-            'attachments', 'formatted_created_at', 'comments_count', 'is_able', 'fake_name',
+            'attachments', 'formatted_created_at', 'comments_count', 'is_able', 'fake_author',
         ]
         read_only_fields = ('created_at', 'updated_at', 'author', 'view_count', 'is_able', 'comments_count', )
 
@@ -108,9 +111,16 @@ class PostSerializer(serializers.ModelSerializer):
         obj._request_user = self.context['request'].user
         return obj.display_content
 
-class PostEditRequestSerializer(serializers.ModelSerializer):
+class PostCreateOrEditSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        source='category',
+        write_only=True,
+    )
+
     class Meta:
         model = Post
-        fields = ['title', 'content']
+        fields = ['title', 'content', 'author', 'category', 'category_id', 'created_by', 'fake_author']
 
 
