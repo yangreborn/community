@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'community_app.apps.CommunityAppConfig',
     'account',
     'community',
-    'order',
+    'demand',
     'rest_framework',
     'django_filters',
     'drf_yasg',
