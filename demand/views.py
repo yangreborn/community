@@ -1,36 +1,16 @@
-from django.utils import timezone
 from django.db.models import F, Q, Count
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.generics import GenericAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-
-from account.models import User
 from .models import Category, Demand, Comment
-from community.serializers import UserSerializer
 from .serializers import (
      CategorySerializer, DemandSerializer,
     CommentSerializer,
 )
 from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
-
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-    permission_classes = [IsOwnerOrAdmin]
-
-class UserRegisterView(GenericAPIView):
-    serializer_class = UserSerializer
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10  # 每页显示的记录数

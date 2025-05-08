@@ -1,9 +1,7 @@
-from django.db.models import Q
 from rest_framework import serializers
-from account.models import User
 from .models import Category, Demand, Comment
 from community.utils import format_created_at
-from community.serializers import UserSerializer
+from account.serializers import UserSerializer
 
 class CategorySerializer(serializers.ModelSerializer):
     count = serializers.SerializerMethodField(help_text='分类下帖子数')

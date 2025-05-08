@@ -3,7 +3,16 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import csrf_protect
+from rest_framework import viewsets, status
+from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
+
 from .forms import CustomUserCreationForm
+from .models import User
+from .permissions import IsOwnerOrAdmin
+from .serializers import UserSerializer
+
+
 # Create your views here.
 def register(request):
     if request.method == 'POST':
@@ -37,3 +46,17 @@ def check_login(request):
     return JsonResponse({'status': 'success'})
 
 
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsOwnerOrAdmin]
+
+class UserRegisterView(GenericAPIView):
+    serializer_class = UserSerializer
+    @staticmethod
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

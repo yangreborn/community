@@ -1,22 +1,8 @@
 from django.db.models import Q
 from rest_framework import serializers
-from account.models import User
 from .models import Category, Post, Comment, PostAttachment, Tag
 from .utils import format_created_at
-
-class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    class Meta:
-        model = User
-        fields = ('id', 'username', 'email', 'role', 'password')
-        read_only_fields = ('role',)
-    def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email', ''),
-            password=validated_data['password']
-        )
-        return user
+from account.serializers import UserSerializer
 
 class CategorySerializer(serializers.ModelSerializer):
     count = serializers.SerializerMethodField(help_text='分类下帖子数')
