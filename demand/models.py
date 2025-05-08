@@ -23,7 +23,7 @@ class Demand(models.Model):
         ('rejected', '已拒绝'),
     )
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='posts', verbose_name='分类')
-    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='demands')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='demands')
     title = models.CharField('标题', max_length=200)
     description = models.TextField('描述')
     status = models.CharField('状态', max_length=20, choices=STATUS_CHOICES, default='new')

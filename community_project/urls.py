@@ -33,6 +33,7 @@ urlpatterns = [
    path('community_app/', include('community_app.urls')),
    path('account/', include('account.urls')),
    path('api/community/', include('community.urls')),
+   path('api/demand/', include('demand.urls')),
    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
    path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

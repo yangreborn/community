@@ -1,5 +1,7 @@
 from django.utils import timezone
 from django.db.models import F, Q, Count
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -35,15 +37,9 @@ class CustomPageNumberPagination(PageNumberPagination):
     max_page_size = 100  # 每页最大显示的记录数
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    """
-    get:
-    Return all snippets.
-    post:
-    Create a new snippet instance.
-    """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsOwnerOrAdmin]
+    permission_classes = [IsAdminUser]
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
@@ -87,6 +83,24 @@ class PostViewSet(viewsets.ModelViewSet):
             ).exclude(is_able=False)
         return queryset
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        post = self.get_object()
+        if not IsOwnerOrAdmin().has_object_permission(request, self, post):
+            return Response({'error': '没有权限编辑此对象'}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = self.get_serializer(post, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        post.edited_title = serializer.validated_data.get('title')
+        post.edited_content = serializer.validated_data.get('content')
+        post.last_edited_at = timezone.now()
+        post.is_edit_approved = False
+        post.save()
+        return Response(
+            {'status': '编辑请求已提交，等待审核'},
+            status=status.HTTP_202_ACCEPTED
+        )
+
     def destroy(self, request, *args, **kwargs):
         """
         删除帖子，管理员或作者权限
@@ -101,24 +115,6 @@ class PostViewSet(viewsets.ModelViewSet):
             return Response({"detail": "You do not have permission to delete this book."},
                             status=status.HTTP_403_FORBIDDEN)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
-    def request_edit(self, request, pk=None):
-        """
-        编辑帖子请求，管理员或作者权限
-        """
-        post = self.get_object()
-        serializer = PostCreateOrEditSerializer(post, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        post.edited_title = serializer.validated_data.get('title')
-        post.edited_content = serializer.validated_data.get('content')
-        post.last_edited_at = timezone.now()
-        post.is_edit_approved = False
-        post.save()
-        return Response(
-            {'status': '编辑请求已提交，等待审核'},
-            status=status.HTTP_202_ACCEPTED
-        )
-
     def perform_create(self, serializer):
         serializer.save(author=self.request.user, created_by=self.request.user)
 
@@ -128,6 +124,16 @@ class PostViewSet(viewsets.ModelViewSet):
         Post.objects.filter(pk=instance.pk).update(view_count=F('view_count') + 1)
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    @swagger_auto_schema(
+        method='get',
+        operation_summary=' 获取未回复的帖子',
+        operation_description='''
+                用于获取管理员未回复的帖子
+                参数：无
+                权限：管理员
+            '''
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def unreplied(self, request):
         """
@@ -141,6 +147,15 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        method='get',
+        operation_summary=' 获取未审批的帖子',
+        operation_description='''
+                    用于获取管理员未审批的帖子
+                    参数：无
+                    权限：管理员
+                '''
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
     def unapproved(self, request):
         """
@@ -153,6 +168,16 @@ class PostViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='置顶帖子',
+        operation_description='''
+                        未置顶设为置顶，已置顶取消置顶，id为帖子id
+                        参数：无
+                        权限：管理员
+                    '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def pin(self, request, pk):
         """
@@ -163,6 +188,15 @@ class PostViewSet(viewsets.ModelViewSet):
         post.save()
         return Response({'status' : '置顶成功' if post.is_pinned else '取消置顶成功'}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='上传附件',
+        operation_description='''
+                            上传附件
+                            参数：file: 文件类型，必需参数。要上传的附件文件。
+                            权限：管理员和作者
+                        '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
     def upload_attachment(self, request, pk):
         """
@@ -178,6 +212,14 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer = PostAttachmentSerializer(attachment)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='帖子创建审核通过',
+        operation_description='''
+                                帖子创建审核通过，id为帖子id
+                                权限：管理员
+                            '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def create_approve(self, request, pk=None):
         """
@@ -189,6 +231,14 @@ class PostViewSet(viewsets.ModelViewSet):
         post.save()
         return Response({'status': '帖子已审核通过'})
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='帖子创建审核拒绝',
+        operation_description='''
+                                    帖子创建审核拒绝，id为帖子id
+                                    权限：管理员
+                                '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def create_reject(self, request, pk=None):
         """
@@ -200,6 +250,14 @@ class PostViewSet(viewsets.ModelViewSet):
         post.save()
         return Response({'status': '帖子已拒绝'})
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='帖子编辑审核通过',
+        operation_description='''
+                                    帖子编辑审核通过，id为帖子id
+                                    权限：管理员
+                                '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def edit_approve(self, request, pk=None):
         """
@@ -217,6 +275,14 @@ class PostViewSet(viewsets.ModelViewSet):
         post.save()
         return Response({'status': '编辑已批准'})
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='帖子编辑审核拒绝',
+        operation_description='''
+                                    帖子编辑审核拒绝，id为帖子id
+                                    权限：管理员
+                                '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def edit_reject(self, request, pk=None):
         """
@@ -230,6 +296,15 @@ class PostViewSet(viewsets.ModelViewSet):
         post.save()
         return Response({'status': '编辑已拒绝'})
 
+    @swagger_auto_schema(
+        methods= ['post', 'delete'],
+        operation_summary='新增删除帖子标签',
+        operation_description='''
+                            post新增帖子标签，delete删除帖子标签，id为帖子id
+                            - tag_ids: 数组类型，必需参数。要操作的标签 ID 列表。可以是单个 ID 或多个 ID 组成的数组。
+                            权限：管理员
+                            '''
+    )
     @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAdminUser])
     def tags(self, request, pk=None):
         """
@@ -254,6 +329,14 @@ class PostViewSet(viewsets.ModelViewSet):
             post.tags.remove(*tag_ids)
             return Response({'status': '标签移除成功'})
 
+    @swagger_auto_schema(
+        method='get',
+        operation_summary='获取帖子相关推荐',
+        operation_description='''
+                                获取帖子的相关推荐帖子，id为帖子id
+                                权限：无
+                                '''
+    )
     @action(detail=True, methods=['get'])
     def related(self, request, pk=None):
         """
@@ -275,6 +358,18 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(related_posts, many=True)
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='创建伪帖子',
+        operation_description='''
+                                管理员创建伪作者帖子，
+                                参数：
+                                - title: 字符串类型，必须参数。帖子标题。
+                                - content: 字符串类型，可选参数。帖子内容。
+                                - category_id: 整数类型，必选参数。帖子分类的id
+                                权限：管理员
+                                '''
+    )
     @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
     def create_fake_post(self, request):
         """
@@ -306,6 +401,30 @@ class CommentViewSet(viewsets.ModelViewSet):
             # 管理员可以看到所有内容
         return queryset
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        post = self.get_object()
+        if not IsOwnerOrAdmin().has_object_permission(request, self, post):
+            return Response({'error': '没有权限编辑此对象'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(post, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        post.edited_content = serializer.validated_data.get('content')
+        post.last_edited_at = timezone.now()
+        post.is_edit_approved = False
+        post.save()
+        return Response(
+            {'status': '编辑请求已提交，等待审核'},
+            status=status.HTTP_202_ACCEPTED
+        )
+
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='回复创建审核通过',
+        operation_description='''
+                                    回复创建审核通过，id为回复id
+                                    权限：管理员
+                                '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def create_approve(self, request, pk=None):
         """
@@ -317,6 +436,14 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment.save()
         return Response({'status': '回复已审核通过'})
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='回复创建审核拒绝',
+        operation_description='''
+                                        回复创建审核拒绝，id为回复id
+                                        权限：管理员
+                                    '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def create_reject(self, request):
         """
@@ -328,6 +455,14 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment.save()
         return Response({'status': '回复已拒绝'})
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='回复编辑审核通过',
+        operation_description='''
+                                        回复编辑审核通过，id为回复id
+                                        权限：管理员
+                                    '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def edit_approve(self, request, pk=None):
         """
@@ -337,12 +472,20 @@ class CommentViewSet(viewsets.ModelViewSet):
         if not comment.edited_content:
             return Response({'error': '该回复没有待审核的编辑'}, status=400)
         # 批准编辑
-        comment.content = comment.edited_content
+        comment.content = comment.edited_content if comment.edited_content else comment.content
         comment.edited_content = None
         comment.is_edit_approved = True
         comment.save()
         return Response({'status': '编辑已批准'})
 
+    @swagger_auto_schema(
+        method='post',
+        operation_summary='回复编辑审核拒绝',
+        operation_description='''
+                                            回复编辑审核拒绝，id为回复id
+                                            权限：管理员
+                                        '''
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def edit_reject(self, request, pk=None):
         """

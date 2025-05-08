@@ -23,6 +23,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'count', 'parent_id']
+        ref_name = 'CommunityCategorySerializer'
 
     @staticmethod
     def get_count(obj):
@@ -36,14 +37,29 @@ class PostAttachmentSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     formatted_created_at = serializers.SerializerMethodField(help_text='格式化创建时间')
+    author_name = serializers.SerializerMethodField()
+    author_role = serializers.SerializerMethodField()
+
     class Meta:
         model = Comment
-        fields = ['id', 'author', 'post', 'content', 'created_at', 'formatted_created_at', 'parent_comment']
-        read_only_fields = ('created_at',)
+        fields = [
+                    'id', 'author', 'post', 'content', 'created_at', 'formatted_created_at', 'parent_comment',
+                    'author_name', 'author_role'
+                  ]
+        read_only_fields = ('created_at', 'parent_comment',)
+        ref_name = 'CommunityCommentSerializer'
 
     @staticmethod
     def get_formatted_created_at(obj) -> str:
         return format_created_at(obj.created_at)
+
+    @staticmethod
+    def get_author_name(obj):
+        return obj.author.username
+
+    @staticmethod
+    def get_author_role(obj):
+        return obj.author.role
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -72,9 +88,9 @@ class PostDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments',
-            'tag_ids', 'created_at', 'updated_at',  'view_count', 'is_pinned',
-            'attachments', 'formatted_created_at', 'comments_count', 'is_able', 'fake_author',
+            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments', 'tag_ids', 'created_at',
+            'updated_at',  'view_count', 'is_pinned', 'attachments', 'formatted_created_at', 'comments_count',
+            'is_able', 'fake_author',
         ]
         read_only_fields = ('created_at', 'updated_at', 'author', 'view_count', 'is_able', 'comments_count', )
 
