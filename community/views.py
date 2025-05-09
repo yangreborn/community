@@ -36,33 +36,16 @@ class PostViewSet(viewsets.ModelViewSet):
         return PostDetailSerializer
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        #检查是否是请求未回复帖子列表的特殊情况
-        is_unreplied_endpoint = getattr(self, 'action', None) == 'unreplied'
-
+        queryset = super().get_queryset().filter(is_able=True)
         # 未认证用户只能看到已审核的公开内容
         if not self.request.user.is_authenticated:
-            return queryset.filter(is_create_approved=True, visibility='public').exclude(is_able=False)
-
-        # 管理员查看未回复帖子
-        if is_unreplied_endpoint and self.request.user.is_staff:
-            # 获取所有有管理员回复的帖子ID
-            replied_post_ids = Comment.objects.filter(
-                author__is_staff=True
-            ).exclude(is_able=False).values_list('post_id', flat=True).distinct()
-
-            # 返回未被管理员回复的帖子（排除管理员自己发的帖子）
-            return queryset.exclude(
-                Q(id__in=replied_post_ids) | Q(author__is_staff=True)
-            ).filter(
-                is_create_approved=True  # 可选：只显示已审核的帖子
-            ).exclude(is_able=False)
-
+            return queryset.filter(is_create_approved=True, visiblity='public')
         # 普通认证用户可以看到自己的内容和已审核的公开内容
         if not self.request.user.is_staff:
             return queryset.filter(
-                Q(is_create_approved=True, visibility='public') | Q(author=self.request.user)
-            ).exclude(is_able=False)
+                Q(is_create_approved=True, visibility='public') |
+                Q(author=self.request.user)
+            )
         return queryset
 
     def update(self, request, *args, **kwargs):
@@ -70,7 +53,6 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         if not IsOwnerOrAdmin().has_object_permission(request, self, post):
             return Response({'error': '没有权限编辑此对象'}, status=status.HTTP_403_FORBIDDEN)
-
         serializer = self.get_serializer(post, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         post.edited_title = serializer.validated_data.get('title')
@@ -121,8 +103,19 @@ class PostViewSet(viewsets.ModelViewSet):
         """
         获取未回复的数据列表，管理员权限
         """
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
+        queryset = super().get_queryset()
+        # 获取所有有管理员回复的帖子ID
+        replied_post_ids = Comment.objects.filter(
+            author__is_staff=True, is_able=True
+        ).values_list('post_id', flat=True).distinct()
+        # 过滤出未被管理员回复的帖子（排除管理员自己发的帖子）
+        unreplied_queryset = queryset.exclude(
+            Q(id__in=replied_post_ids)  |
+            Q(is_able=False)            |
+            Q(is_create_approved=False) |
+            Q(author_id=None)
+        )
+        page = self.paginate_queryset(unreplied_queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
@@ -379,7 +372,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff:
             return queryset.filter(
                 Q(is_create_approved=True, visibility='public') |
-                Q(author=self.request.user)).exclude(is_able=False)
+                Q(author=self.request.user)
+            ).exclude(is_able=False)
             # 管理员可以看到所有内容
         return queryset
 

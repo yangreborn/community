@@ -20,22 +20,39 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from community.urls import urlpatterns as community_urls
+from demand.urls import urlpatterns as demand_urls
+api_info = openapi.Info(
+    title="My API",
+    default_version='v1',
+    description="A simple API for demonstration",
+)
+community_schema_view = get_schema_view(
+    api_info,
+    public=True,
+    patterns=community_urls
+)
+demand_schema_view = get_schema_view(
+    api_info,
+    public=True,
+    patterns=demand_urls
+)
 schema_view = get_schema_view(
-    openapi.Info(
-        title="My API",
-        default_version='v1',
-        description="A simple API for demonstration",
-    ),
+    api_info,
     public=True,
 )
-urlpatterns = [
-   path('admin/', admin.site.urls),
-   path('community_app/', include('community_app.urls')),
-   path('account/', include('account.urls')),
-   path('api/community/', include('community.urls')),
-   path('api/demand/', include('demand.urls')),
-   path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-   path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-   path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('community_app/', include('community_app.urls')),
+    path('account/', include('account.urls')),
+    path('api/community/', include('community.urls')),
+    path('api/demand/', include('demand.urls')),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+# community API 的 Swagger 文档
+    path('docs/community/', community_schema_view.with_ui('swagger', cache_timeout=0), name='schema-community-swagger-ui'),
+    # demand API 的 Swagger 文档
+    path('docs/demand/', demand_schema_view.with_ui('swagger', cache_timeout=0), name='schema-demand-swagger-ui'),
 ]

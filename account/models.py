@@ -8,6 +8,7 @@ class User(AbstractUser):
     )
     role = models.CharField(max_length=10, choices=ROLES, default='user')
 
+    @property
     def is_admin(self):
         return self.role == 'admin'
 
