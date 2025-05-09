@@ -54,12 +54,7 @@ class TagSerializer(serializers.ModelSerializer):
 
 class PostDetailSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    category = CategorySerializer(read_only=True)
-    category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(),
-        source='category',
-        write_only=True,
-    )
+    categories = CategorySerializer(many=True, read_only=True)
     attachments = PostAttachmentSerializer(read_only=True, many=True)
     formatted_created_at = serializers.SerializerMethodField(help_text='格式化创建时间')
     comments = serializers.SerializerMethodField()
@@ -74,7 +69,7 @@ class PostDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'title', 'content', 'author', 'category', 'category_id', 'comments', 'tag_ids', 'created_at',
+            'id', 'title', 'content', 'author', 'categories', 'comments', 'tag_ids', 'created_at',
             'updated_at',  'view_count', 'is_pinned', 'attachments', 'formatted_created_at', 'comments_count',
             'is_able', 'fake_author',
         ]

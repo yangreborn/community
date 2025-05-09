@@ -6,7 +6,7 @@ from account.models import User
 VISIBILITY_CHOICES = [('private', '仅作者和管理员'), ('public', '公开'),]
 
 
-class  Category(models.Model):
+class Category(models.Model):
     name = models.CharField(max_length=20, unique=True, verbose_name='类名')
     description = models.TextField(blank=True, verbose_name='描述')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
@@ -31,7 +31,8 @@ class Tag(models.Model):
         verbose_name_plural = "标签"
 
 class Post(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='posts', verbose_name='分类')
+    categories = models.ManyToManyField(Category, related_name='posts', verbose_name='分类')
+    # category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='posts', verbose_name='分类')
     title = models.CharField(max_length=100, null=False, blank=False, verbose_name='标题')
     edited_title = models.CharField(max_length=100, null=True, blank=True, verbose_name='编辑标题')
     content = models.TextField(blank=True, default='', verbose_name='内容')
@@ -42,7 +43,7 @@ class Post(models.Model):
     is_pinned = models.BooleanField(default=False, verbose_name='是否置顶')
     view_count = models.PositiveIntegerField(default=0, verbose_name='浏览量')
     tags = models.ManyToManyField(Tag, blank=True, related_name='posts', verbose_name='标签')
-    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='private', verbose_name='可视    度')
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='private', verbose_name='可视度')
     is_create_approved = models.BooleanField(default=False, verbose_name='创建帖子审核是否通过')
     is_edit_approved = models.BooleanField(default=True, verbose_name='编辑帖子审核是否通过')
     last_edited_at = models.DateTimeField(null=True, blank=True, verbose_name='最后更新时间')

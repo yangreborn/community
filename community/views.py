@@ -1,11 +1,13 @@
 from django.utils import timezone
 from django.db.models import F, Q, Count
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+
 from .models import Category, Post, PostAttachment, Comment, Tag
 from .serializers import (
     CategorySerializer, PostDetailSerializer,
@@ -25,8 +27,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
-    filter_backends = (filters.SearchFilter, )
+    filter_backends = (filters.SearchFilter, DjangoFilterBackend)
     search_fields = ['title', 'content', 'author__username']
+    filterset_fields  = ['categories']
+    # filterset_class = PostFilter
     permission_classes = [IsOwnerAuditorOrApproved, IsOwnerOrAuditor]
     pagination_class = CustomPageNumberPagination
 
@@ -288,7 +292,7 @@ class PostViewSet(viewsets.ModelViewSet):
         post = self.get_object()
         if request.method == 'POST':
             # 添加标签
-            tag_ids = request.data.get('tag_ids', [])
+            tag_ids = request.data.getlist('tag_ids', [])
             if not isinstance(tag_ids, list):
                 tag_ids = [tag_ids]
 
@@ -297,12 +301,44 @@ class PostViewSet(viewsets.ModelViewSet):
             return Response({'status': '标签添加成功'})
         elif request.method == 'DELETE':
             # 移除标签
-            tag_ids = request.data.get('tag_ids', [])
+            tag_ids = request.data.getlist('tag_ids', [])
             if not isinstance(tag_ids, list):
                 tag_ids = [tag_ids]
 
             post.tags.remove(*tag_ids)
             return Response({'status': '标签移除成功'})
+
+    @swagger_auto_schema(
+        methods=['post', 'delete'],
+        operation_summary='新增删除帖子分类',
+        operation_description='''
+                                post新增帖子分类，delete删除帖子分类，id为帖子id
+                                - category_ids: 数组类型，必需参数。要操作的标签 ID 列表。可以是单个 ID 或多个 ID 组成的数组。
+                                权限：管理员
+                                '''
+    )
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuditor])
+    def categories(self, request, pk=None):
+        """
+        新增，删除帖子分类，管理员权限
+        """
+        post = self.get_object()
+        if request.method == 'POST':
+            # 添加标签
+            category_ids = request.data.getlist('category_ids', [])
+            if not isinstance(category_ids, list):
+                category_ids = [category_ids]
+            categories = Category.objects.filter(id__in=category_ids)
+            post.categories.add(*categories)
+            return Response({'status': '分类添加成功'})
+        elif request.method == 'DELETE':
+            # 移除标签
+            category_ids = request.data.getlist('category_ids', [])
+            if not isinstance(category_ids, list):
+                category_ids = [category_ids]
+
+            post.categories.remove(*category_ids)
+            return Response({'status': '分类移除成功'})
 
     @swagger_auto_schema(
         method='get',

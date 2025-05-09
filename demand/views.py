@@ -3,6 +3,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from .models import Category, Demand, Comment
@@ -99,11 +100,14 @@ class DemandViewSet(viewsets.ModelViewSet):
         if new_status not in dict(demand.STATUS_CHOICES).keys():
             return Response({'error': '无效的状态'}, status=status.HTTP_400_BAD_REQUEST)
 
-        demand._status_change_user = request.user
-        demand._status_change_reason = reason
-        demand.status = new_status
-        demand.save()
-        return Response({'status': '状态更新成功'})
+        try:
+            demand._status_change_user = request.user
+            demand._status_change_reason = reason
+            demand.status = new_status
+            demand.save()
+            return Response({'status': '状态更新成功'})
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['get'])
     def status_history(self, request, pk=None):

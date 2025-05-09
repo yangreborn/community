@@ -1,4 +1,7 @@
+from rest_framework.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
+
 from account.models import User
 
 
@@ -34,18 +37,19 @@ class Demand(models.Model):
         'in_progress': ['pending_review', 'on_hold', 'cancelled'],
         'pending_review': ['in_progress', 'completed'],
         'on_hold': ['in_progress', 'cancelled'],
-        # 终止状态不可再转换
         'completed': [],
         'rejected': [],
         'cancelled': []
     }
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='posts', verbose_name='分类')
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='demands')
+    handler = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='handled_demands')
     title = models.CharField('标题', max_length=200)
     description = models.TextField('描述')
     status = models.CharField('状态', max_length=20, choices=STATUS_CHOICES, default='new')
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
+    completed_at = models.DateTimeField('完成时间', null=True, blank=True)
     is_able = models.BooleanField(default=True, verbose_name='是否禁用')
 
     class Meta:
@@ -53,22 +57,74 @@ class Demand(models.Model):
         verbose_name_plural = '需求'
         ordering = ['-created_at']
 
+    def clean(self):
+        # 这里实现状态转换的验证逻辑
+        old_status = self.__class__.objects.get(pk=self.pk).status if self.pk else None
+        if old_status and not self._is_valid_transition(old_status, self.status):
+            raise ValidationError(f'不允许从 {old_status} 状态转换到 {self.status} 状态')
+
     def is_valid_transition(self, new_status):
         """检查状态转换是否合法"""
         return new_status in self.STATUS_TRANSITIONS.get(self.status, [])
 
-    def save(self, *args, **kwargs):
-        if self.pk:  # 检查是否是已有实例
-            old = Demand.objects.get(pk=self.pk)
-            if old.status != self.status:
-                DemandStatusChange.objects.create(
-                    demand=self,
-                    from_status=old.status,
-                    to_status=self.status,
-                    changed_by=getattr(self, '_status_change_user', None),
-                    change_reason=getattr(self, '_status_change_reason', None)
-                )
-        super().save(*args, **kwargs)
+    def change_status(self, new_status, user, reason=None):
+        """
+        变更状态并记录变更历史
+        :param new_status: 新状态
+        :param user: 执行变更的用户
+        :param reason: 变更原因(可选)
+        """
+        if not self.is_valid_transition(new_status):
+            raise ValueError(
+                f"Invalid status transition from {self.get_status_display()} to "
+                f"{dict(self.STATUS_CHOICES).get(new_status)}"
+            )
+
+            # 记录变更前的状态
+        from_status = self.status
+
+        # 执行状态变更
+        self.status = new_status
+        self.updated_at = timezone.now()
+
+        # 如果是完成状态，记录完成时间
+        if new_status == 'completed':
+            self.completed_at = timezone.now()
+
+        self.save()
+
+        # 记录状态变更历史
+        DemandStatusChange.objects.create(
+            demand=self,
+            from_status=from_status,
+            to_status=new_status,
+            changed_by=user,
+            change_reason=reason
+        )
+
+        # 执行状态变更后的额外操作
+        self.after_status_change(from_status, new_status, user)
+
+    def after_status_change(self, from_status, to_status, user):
+        """
+        状态变更后的额外操作
+        可以在这里添加通知、日志等逻辑
+        """
+        # 示例：分配处理人
+        if to_status == 'accepted' and not self.handler:
+            self.handler = user
+            self.save()
+
+        # 示例：发送通知
+        self.send_status_notification(to_status, user)
+
+    def send_status_notification(self, new_status, changed_by):
+        """
+        发送状态变更通知
+        实际项目中可以使用 Django 的邮件系统或第三方通知服务
+        """
+        # 这里只是示例，实际实现根据项目需求
+        print(f"通知：需求 '{self.title}' 状态已变更为 {self.get_status_display()}，操作人：{changed_by.username}")
 
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
