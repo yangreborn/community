@@ -5,6 +5,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework import filters
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
@@ -323,23 +324,28 @@ class PostViewSet(viewsets.ModelViewSet):
         新增，删除帖子分类，管理员权限
         """
         post = self.get_object()
+        category_ids = request.data.getlist('category_ids', [])
+        if not category_ids:
+            raise ValidationError("必须提供 category_ids")
+
+        try:
+            category_ids = [int(id) for id in category_ids]
+        except ValueError:
+            raise ValidationError("category_ids 必须是整数列表")
+
+        categories = Category.objects.filter(id__in=category_ids)
+        if len(categories) != len(category_ids):
+            invalid_ids = set(category_ids) - set(c.id for c in categories)
+            raise ValidationError(f"无效的分类 ID: {list(invalid_ids)}")
         if request.method == 'POST':
-            # 添加标签
-            category_ids = request.data.getlist('category_ids', [])
-            if not isinstance(category_ids, list):
-                category_ids = [category_ids]
-            categories = Category.objects.filter(id__in=category_ids)
             post.categories.add(*categories)
-            return Response({'status': '分类添加成功'})
+            action = "添加"
         elif request.method == 'DELETE':
-            # 移除标签
-            category_ids = request.data.getlist('category_ids', [])
-            if not isinstance(category_ids, list):
-                category_ids = [category_ids]
-
-            post.categories.remove(*category_ids)
-            return Response({'status': '分类移除成功'})
-
+            post.categories.remove(*categories)
+            action = "移除"
+        serializer = CategorySerializer(post.categories.all(), many=True)
+        return Response({'status': f'分类{action}成功', 'categories': serializer.data},
+                        status=status.HTTP_200_OK)
     @swagger_auto_schema(
         method='get',
         operation_summary='获取帖子相关推荐',
