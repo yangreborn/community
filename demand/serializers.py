@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Demand, Comment
+from .models import Category, Demand, Comment, DemandStatusChange
 from community.utils import format_created_at
 from account.serializers import UserSerializer
 
@@ -54,4 +54,10 @@ class DemandSerializer(serializers.ModelSerializer):
         return CommentSerializer(comments, many=True, context=self.context).data
 
 
+class StatusChangeSerializer(serializers.ModelSerializer):
+    changed_by = serializers.StringRelatedField()
 
+    class Meta:
+        model = DemandStatusChange
+        fields = ['from_status', 'to_status', 'changed_by', 'change_reason', 'changed_at']
+        read_only_fields = fields

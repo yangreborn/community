@@ -7,10 +7,10 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from .models import Category, Demand, Comment
 from .serializers import (
-     CategorySerializer, DemandSerializer,
-    CommentSerializer,
+    CategorySerializer, DemandSerializer,
+    CommentSerializer, StatusChangeSerializer,
 )
-from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
+from .permissions import IsOwnerAuditorOrApproved, IsOwnerOrAuditor, IsAuditor
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10  # 每页显示的记录数
@@ -20,13 +20,13 @@ class CustomPageNumberPagination(PageNumberPagination):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuditor]
 
 class DemandViewSet(viewsets.ModelViewSet):
     queryset = Demand.objects.all()
     filter_backends = (filters.SearchFilter, )
     search_fields = ['title', 'content', 'author__username']
-    permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
+    permission_classes = [IsOwnerAuditorOrApproved, IsOwnerOrAuditor]
     pagination_class = CustomPageNumberPagination
     serializer_class = DemandSerializer
 
@@ -65,7 +65,7 @@ class DemandViewSet(viewsets.ModelViewSet):
                 权限：管理员
             '''
     )
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[IsAuditor])
     def unreplied(self, request):
         """
         获取未回复的数据列表，管理员权限
@@ -90,22 +90,35 @@ class DemandViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
-    def update_status(self, request, pk=None):
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
+    def change_status(self, request, pk=None):
         demand = self.get_object()
         new_status = request.data.get('status')
+        reason = request.data.get('reason', '')
 
         if new_status not in dict(demand.STATUS_CHOICES).keys():
             return Response({'error': '无效的状态'}, status=status.HTTP_400_BAD_REQUEST)
 
+        demand._status_change_user = request.user
+        demand._status_change_reason = reason
         demand.status = new_status
         demand.save()
         return Response({'status': '状态更新成功'})
 
+    @action(detail=True, methods=['get'])
+    def status_history(self, request, pk=None):
+        """
+        获取需求状态变更历史
+        """
+        demand = self.get_object()
+        changes = demand.status_changes.all()
+        serializer = StatusChangeSerializer(changes, many=True)
+        return Response(serializer.data)
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
+    permission_classes = [IsOwnerAuditorOrApproved, IsOwnerOrAuditor]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

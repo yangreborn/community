@@ -11,7 +11,7 @@ from .serializers import (
     CategorySerializer, PostDetailSerializer,
     CommentSerializer, PostAttachmentSerializer, TagSerializer, PostCreateOrEditSerializer
 )
-from .permissions import IsOwnerOrAdmin, IsOwnerAdminOrApproved, IsAdminUser
+from .permissions import IsOwnerAuditorOrApproved, IsOwnerOrAuditor, IsAuditor
 
 class CustomPageNumberPagination(PageNumberPagination):
     page_size = 10  # 每页显示的记录数
@@ -21,13 +21,13 @@ class CustomPageNumberPagination(PageNumberPagination):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuditor]
 
 class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     filter_backends = (filters.SearchFilter, )
     search_fields = ['title', 'content', 'author__username']
-    permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
+    permission_classes = [IsOwnerAuditorOrApproved, IsOwnerOrAuditor]
     pagination_class = CustomPageNumberPagination
 
     def get_serializer_class(self):
@@ -39,7 +39,7 @@ class PostViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset().filter(is_able=True)
         # 未认证用户只能看到已审核的公开内容
         if not self.request.user.is_authenticated:
-            return queryset.filter(is_create_approved=True, visiblity='public')
+            return queryset.filter(is_create_approved=True, visibility='public')
         # 普通认证用户可以看到自己的内容和已审核的公开内容
         if not self.request.user.is_staff:
             return queryset.filter(
@@ -51,7 +51,7 @@ class PostViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         post = self.get_object()
-        if not IsOwnerOrAdmin().has_object_permission(request, self, post):
+        if not IsOwnerOrAuditor().has_object_permission(request, self, post):
             return Response({'error': '没有权限编辑此对象'}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(post, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -98,7 +98,7 @@ class PostViewSet(viewsets.ModelViewSet):
                 权限：管理员
             '''
     )
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[IsAuditor])
     def unreplied(self, request):
         """
         获取未回复的数据列表，管理员权限
@@ -131,7 +131,7 @@ class PostViewSet(viewsets.ModelViewSet):
                     权限：管理员
                 '''
     )
-    @action(detail=False, methods=['get'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['get'], permission_classes=[IsAuditor])
     def unapproved(self, request):
         """
         获取未审批且可用的对象列表，管理员权限
@@ -153,7 +153,7 @@ class PostViewSet(viewsets.ModelViewSet):
                         权限：管理员
                     '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def pin(self, request, pk):
         """
         未置顶设为置顶，已置顶取消置顶，管理员权限
@@ -172,7 +172,7 @@ class PostViewSet(viewsets.ModelViewSet):
                             权限：管理员和作者
                         '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAdmin])
+    @action(detail=True, methods=['post'], permission_classes=[IsOwnerOrAuditor])
     def upload_attachment(self, request, pk):
         """
         上传附件，管理员和作者权限
@@ -195,7 +195,7 @@ class PostViewSet(viewsets.ModelViewSet):
                                 权限：管理员
                             '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def create_approve(self, request, pk=None):
         """
         创建帖子审核通过，管理员权限
@@ -214,7 +214,7 @@ class PostViewSet(viewsets.ModelViewSet):
                                     权限：管理员
                                 '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def create_reject(self, request, pk=None):
         """
         创建帖子审核驳回，管理员权限
@@ -233,7 +233,7 @@ class PostViewSet(viewsets.ModelViewSet):
                                     权限：管理员
                                 '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def edit_approve(self, request, pk=None):
         """
         编辑帖子审核通过，管理员权限
@@ -258,7 +258,7 @@ class PostViewSet(viewsets.ModelViewSet):
                                     权限：管理员
                                 '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def edit_reject(self, request, pk=None):
         """
         编辑帖子审核驳回，管理员权限
@@ -280,7 +280,7 @@ class PostViewSet(viewsets.ModelViewSet):
                             权限：管理员
                             '''
     )
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuditor])
     def tags(self, request, pk=None):
         """
         新增，删除帖子标签，管理员权限
@@ -345,7 +345,7 @@ class PostViewSet(viewsets.ModelViewSet):
                                 权限：管理员
                                 '''
     )
-    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=False, methods=['post'], permission_classes=[IsAuditor])
     def create_fake_post(self, request):
         """
         创建伪作者帖子，管理员权限
@@ -358,7 +358,7 @@ class PostViewSet(viewsets.ModelViewSet):
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [IsOwnerAdminOrApproved, IsOwnerOrAdmin]
+    permission_classes = [IsOwnerAuditorOrApproved, IsOwnerOrAuditor]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -380,7 +380,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         post = self.get_object()
-        if not IsOwnerOrAdmin().has_object_permission(request, self, post):
+        if not IsOwnerOrAuditor().has_object_permission(request, self, post):
             return Response({'error': '没有权限编辑此对象'}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(post, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -401,7 +401,7 @@ class CommentViewSet(viewsets.ModelViewSet):
                                     权限：管理员
                                 '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def create_approve(self, request, pk=None):
         """
         创建回复审核通过，管理员权限
@@ -420,7 +420,7 @@ class CommentViewSet(viewsets.ModelViewSet):
                                         权限：管理员
                                     '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def create_reject(self, request):
         """
         创建回复审核驳回，管理员权限
@@ -439,7 +439,7 @@ class CommentViewSet(viewsets.ModelViewSet):
                                         权限：管理员
                                     '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def edit_approve(self, request, pk=None):
         """
         编辑回复审核通过，管理员权限
@@ -462,7 +462,7 @@ class CommentViewSet(viewsets.ModelViewSet):
                                             权限：管理员
                                         '''
     )
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuditor])
     def edit_reject(self, request, pk=None):
         """
         编辑回复审核驳回，管理员权限
@@ -478,4 +478,4 @@ class CommentViewSet(viewsets.ModelViewSet):
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuditor]
